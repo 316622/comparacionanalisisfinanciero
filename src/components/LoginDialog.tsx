@@ -7,12 +7,15 @@ import { useAuth } from "@/hooks/useAuth";
 import { LogIn, LogOut, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const ACCESS_CODE = "FINANZAS2025";
+
 const LoginDialog = () => {
   const { user, signIn, signUp, signOut, loading } = useAuth();
   const [open, setOpen] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accessCode, setAccessCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -31,6 +34,10 @@ const LoginDialog = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (accessCode !== ACCESS_CODE) {
+      toast({ title: "Código incorrecto", description: "El código de acceso no es válido. / Invalid access code.", variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     const { error } = isSignUp ? await signUp(email, password) : await signIn(email, password);
     setSubmitting(false);
@@ -44,6 +51,7 @@ const LoginDialog = () => {
     }
     setEmail("");
     setPassword("");
+    setAccessCode("");
   };
 
   return (
@@ -65,6 +73,10 @@ const LoginDialog = () => {
           <div className="space-y-2">
             <Label htmlFor="password" className="text-foreground">Contraseña / Password</Label>
             <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="border-foreground/30 text-foreground" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="accessCode" className="text-foreground">Código de Acceso / Access Code</Label>
+            <Input id="accessCode" type="password" required value={accessCode} onChange={(e) => setAccessCode(e.target.value)} placeholder="Ingresa el código de acceso" className="border-foreground/30 text-foreground" />
           </div>
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
