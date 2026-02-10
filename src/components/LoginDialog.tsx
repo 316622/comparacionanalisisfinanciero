@@ -21,8 +21,8 @@ const LoginDialog = () => {
   if (user) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground hidden sm:inline">{user.email}</span>
-        <Button variant="outline" size="sm" onClick={signOut}>
+        <span className="text-sm text-primary-foreground/70 hidden sm:inline">{user.email}</span>
+        <Button variant="outline" size="sm" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
           <LogOut className="h-4 w-4 mr-1" /> Salir
         </Button>
       </div>
@@ -49,7 +49,7 @@ const LoginDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
           <LogIn className="h-4 w-4 mr-1" /> Iniciar Sesión
         </Button>
       </DialogTrigger>
