@@ -2,7 +2,11 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, FileText, AlertTriangle, Loader2, Languages, Database, FileCheck } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Upload, FileSpreadsheet, FileText, AlertTriangle, Loader2, Languages, Database, FileCheck, Download, CheckCircle2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 type ComparisonMode = "translation" | "data" | null;
 type BaseFile = "file1" | "file2";
@@ -14,7 +18,44 @@ interface FileSlot {
   file: File | null;
 }
 
+interface Discrepancy {
+  id: number;
+  type: string;
+  severity: "critical" | "major" | "minor";
+  sourceFile: string;
+  sourceLocation: string;
+  sourceText?: string;
+  sourceValue?: string;
+  targetFile: string;
+  targetLocation: string;
+  targetText?: string;
+  targetValue?: string;
+  correctTranslation?: string;
+  expectedValue?: string;
+  explanation: string;
+}
+
+interface ComparisonResult {
+  summary: string;
+  totalDiscrepancies: number;
+  baseFile?: string;
+  discrepancies: Discrepancy[];
+}
+
+const severityColor: Record<string, string> = {
+  critical: "destructive",
+  major: "default",
+  minor: "secondary",
+};
+
+const severityLabel: Record<string, string> = {
+  critical: "Crítico",
+  major: "Mayor",
+  minor: "Menor",
+};
+
 const ComparisonTab = () => {
+  const { toast } = useToast();
   const [mode, setMode] = useState<ComparisonMode>(null);
   const [baseFile, setBaseFile] = useState<BaseFile>("file1");
   const [files, setFiles] = useState<FileSlot[]>([
@@ -24,7 +65,7 @@ const ComparisonTab = () => {
     { label: "Word File 2 (EN)", accept: ".docx,.doc", icon: <FileText className="h-6 w-6" />, file: null },
   ]);
   const [isComparing, setIsComparing] = useState(false);
-  const [results, setResults] = useState<null | string>(null);
+  const [results, setResults] = useState<ComparisonResult | null>(null);
 
   const handleFileChange = useCallback((index: number, file: File | null) => {
     setFiles((prev) => prev.map((slot, i) => (i === index ? { ...slot, file } : slot)));
@@ -34,15 +75,72 @@ const ComparisonTab = () => {
   const allUploaded = files.every((f) => f.file !== null);
 
   const handleCompare = async () => {
+    if (!mode) return;
     setIsComparing(true);
-    setTimeout(() => {
-      setResults(
-        mode === "translation"
-          ? "Comparación de Traducción: Se verificará si la traducción entre los documentos es correcta y fiel al original.\n\nTranslation Comparison: Will verify if the translation between documents is accurate and faithful to the original.\n\n(Requiere Lovable Cloud / Requires Lovable Cloud)"
-          : `Comparación de Datos: Se tomarán los datos del archivo base (${baseFile === "file1" ? "Archivo 1 / File 1" : "Archivo 2 / File 2"}), se traducirán y compararán con el otro archivo para encontrar discrepancias.\n\nData Comparison: Data from the base file (${baseFile === "file1" ? "File 1" : "File 2"}) will be translated and compared against the other file to find discrepancies.\n\n(Requiere Lovable Cloud / Requires Lovable Cloud)`
+    setResults(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("mode", mode);
+      formData.append("baseFile", baseFile);
+      formData.append("excel1", files[0].file!);
+      formData.append("excel2", files[1].file!);
+      formData.append("word1", files[2].file!);
+      formData.append("word2", files[3].file!);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/compare-documents`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: formData,
+        }
       );
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: "Error desconocido" }));
+        throw new Error(err.error || `Error ${response.status}`);
+      }
+
+      const data: ComparisonResult = await response.json();
+      setResults(data);
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
       setIsComparing(false);
-    }, 2000);
+    }
+  };
+
+  const downloadReport = () => {
+    if (!results) return;
+    const lines: string[] = [];
+    lines.push("=== REPORTE DE COMPARACIÓN / COMPARISON REPORT ===\n");
+    lines.push(results.summary + "\n");
+    lines.push(`Total de discrepancias / Total discrepancies: ${results.totalDiscrepancies}\n`);
+    if (results.baseFile) lines.push(`Archivo base / Base file: ${results.baseFile}\n`);
+    lines.push("\n--- DISCREPANCIAS / DISCREPANCIES ---\n");
+
+    results.discrepancies.forEach((d) => {
+      lines.push(`#${d.id} [${d.severity.toUpperCase()}] ${d.type}`);
+      lines.push(`  Origen / Source: ${d.sourceFile} → ${d.sourceLocation}`);
+      lines.push(`  Valor / Value: ${d.sourceText || d.sourceValue || "N/A"}`);
+      lines.push(`  Destino / Target: ${d.targetFile} → ${d.targetLocation}`);
+      lines.push(`  Valor / Value: ${d.targetText || d.targetValue || "N/A"}`);
+      if (d.correctTranslation) lines.push(`  Traducción correcta / Correct: ${d.correctTranslation}`);
+      if (d.expectedValue) lines.push(`  Valor esperado / Expected: ${d.expectedValue}`);
+      lines.push(`  Explicación / Explanation: ${d.explanation}`);
+      lines.push("");
+    });
+
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `comparison-report-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -55,9 +153,7 @@ const ComparisonTab = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card
             className={`cursor-pointer transition-all hover:shadow-md ${
-              mode === "translation"
-                ? "ring-2 ring-primary border-primary"
-                : "hover:border-primary/40"
+              mode === "translation" ? "ring-2 ring-primary border-primary" : "hover:border-primary/40"
             }`}
             onClick={() => { setMode("translation"); setResults(null); }}
           >
@@ -80,9 +176,7 @@ const ComparisonTab = () => {
 
           <Card
             className={`cursor-pointer transition-all hover:shadow-md ${
-              mode === "data"
-                ? "ring-2 ring-primary border-primary"
-                : "hover:border-primary/40"
+              mode === "data" ? "ring-2 ring-primary border-primary" : "hover:border-primary/40"
             }`}
             onClick={() => { setMode("data"); setResults(null); }}
           >
@@ -115,11 +209,9 @@ const ComparisonTab = () => {
             <div className="flex items-center gap-3">
               <FileCheck className="h-5 w-5 text-primary" />
               <div className="flex-1">
-                <p className="text-sm font-medium">
-                  Seleccione el archivo principal / Select the main file
-                </p>
+                <p className="text-sm font-medium">Seleccione el archivo principal / Select the main file</p>
                 <p className="text-xs text-muted-foreground">
-                  Este archivo se usará como referencia base para la comparación / This file will be used as the base reference for comparison
+                  Este archivo se usará como referencia base / This file will be used as the base reference
                 </p>
               </div>
               <Select value={baseFile} onValueChange={(v) => setBaseFile(v as BaseFile)}>
@@ -136,7 +228,7 @@ const ComparisonTab = () => {
         </div>
       )}
 
-      {/* Step 3: Upload files */}
+      {/* Upload files */}
       {mode && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3">
@@ -152,9 +244,7 @@ const ComparisonTab = () => {
                       (baseFile === "file1" && (idx === 0 || idx === 2)) ||
                       (baseFile === "file2" && (idx === 1 || idx === 3))
                     ) && (
-                      <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
-                        Base
-                      </span>
+                      <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">Base</span>
                     )}
                   </CardTitle>
                 </CardHeader>
@@ -163,9 +253,7 @@ const ComparisonTab = () => {
                     {slot.file ? (
                       <div className="text-center">
                         <p className="text-sm font-medium truncate max-w-[200px]">{slot.file.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {(slot.file.size / 1024).toFixed(1)} KB
-                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{(slot.file.size / 1024).toFixed(1)} KB</p>
                       </div>
                     ) : (
                       <div className="text-center text-muted-foreground">
@@ -173,12 +261,7 @@ const ComparisonTab = () => {
                         <p className="text-sm">Click para subir / Click to upload</p>
                       </div>
                     )}
-                    <input
-                      type="file"
-                      accept={slot.accept}
-                      className="hidden"
-                      onChange={(e) => handleFileChange(idx, e.target.files?.[0] || null)}
-                    />
+                    <input type="file" accept={slot.accept} className="hidden" onChange={(e) => handleFileChange(idx, e.target.files?.[0] || null)} />
                   </label>
                 </CardContent>
               </Card>
@@ -190,15 +273,9 @@ const ComparisonTab = () => {
       {/* Compare button */}
       {mode && (
         <div className="flex justify-center">
-          <Button
-            size="lg"
-            disabled={!allUploaded || isComparing}
-            onClick={handleCompare}
-          >
+          <Button size="lg" disabled={!allUploaded || isComparing} onClick={handleCompare}>
             {isComparing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Comparando / Comparing...
-              </>
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analizando con IA... / Analyzing with AI...</>
             ) : mode === "translation" ? (
               "Comparar Traducción / Compare Translation"
             ) : (
@@ -210,22 +287,130 @@ const ComparisonTab = () => {
 
       {/* Results */}
       {results && (
-        <Card className="border-destructive/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Resultados de Comparación / Comparison Results
-            </CardTitle>
-            <CardDescription>
-              {mode === "translation"
-                ? "Análisis de traducción / Translation analysis"
-                : "Discrepancias de datos encontradas / Data discrepancies found"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <pre className="whitespace-pre-wrap text-sm text-muted-foreground">{results}</pre>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          {/* Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                {results.totalDiscrepancies === 0 ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                )}
+                Resumen / Summary
+              </CardTitle>
+              {results.baseFile && (
+                <CardDescription>Archivo base / Base file: {results.baseFile}</CardDescription>
+              )}
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm whitespace-pre-wrap">{results.summary}</p>
+              <div className="flex items-center gap-4 mt-4">
+                <Badge variant="outline" className="text-sm">
+                  {results.totalDiscrepancies} discrepancia(s) / discrepancy(ies)
+                </Badge>
+                {results.discrepancies.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={downloadReport}>
+                    <Download className="h-4 w-4 mr-1" /> Descargar Reporte
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Discrepancies table */}
+          {results.discrepancies.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Detalle de Discrepancias / Discrepancy Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>Severidad</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Archivo Origen / Source</TableHead>
+                      <TableHead>Ubicación / Location</TableHead>
+                      <TableHead>Valor / Value</TableHead>
+                      <TableHead>Archivo Destino / Target</TableHead>
+                      <TableHead>Ubicación / Location</TableHead>
+                      <TableHead>Valor / Value</TableHead>
+                      <TableHead>Corrección / Correction</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {results.discrepancies.map((d) => (
+                      <TableRow key={d.id}>
+                        <TableCell className="font-mono text-xs">{d.id}</TableCell>
+                        <TableCell>
+                          <Badge variant={severityColor[d.severity] as any}>
+                            {severityLabel[d.severity] || d.severity}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">{d.type}</TableCell>
+                        <TableCell className="text-xs font-medium">{d.sourceFile}</TableCell>
+                        <TableCell className="text-xs font-mono">{d.sourceLocation}</TableCell>
+                        <TableCell className="text-xs max-w-[150px] truncate" title={d.sourceText || d.sourceValue}>
+                          {d.sourceText || d.sourceValue || "—"}
+                        </TableCell>
+                        <TableCell className="text-xs font-medium">{d.targetFile}</TableCell>
+                        <TableCell className="text-xs font-mono">{d.targetLocation}</TableCell>
+                        <TableCell className="text-xs max-w-[150px] truncate" title={d.targetText || d.targetValue}>
+                          {d.targetText || d.targetValue || "—"}
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[150px] truncate text-primary" title={d.correctTranslation || d.expectedValue}>
+                          {d.correctTranslation || d.expectedValue || "—"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Detailed cards for each discrepancy */}
+          {results.discrepancies.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Explicaciones Detalladas / Detailed Explanations</h3>
+              {results.discrepancies.map((d) => (
+                <Card key={d.id} className={d.severity === "critical" ? "border-destructive/50" : ""}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-start gap-3">
+                      <Badge variant={severityColor[d.severity] as any} className="mt-0.5 shrink-0">
+                        #{d.id} {severityLabel[d.severity]}
+                      </Badge>
+                      <div className="space-y-1 min-w-0">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          <div className="bg-muted/50 rounded p-2">
+                            <p className="font-semibold">{d.sourceFile}</p>
+                            <p className="font-mono text-muted-foreground">{d.sourceLocation}</p>
+                            <p className="mt-1 break-words">{d.sourceText || d.sourceValue}</p>
+                          </div>
+                          <div className="bg-muted/50 rounded p-2">
+                            <p className="font-semibold">{d.targetFile}</p>
+                            <p className="font-mono text-muted-foreground">{d.targetLocation}</p>
+                            <p className="mt-1 break-words">{d.targetText || d.targetValue}</p>
+                          </div>
+                        </div>
+                        {(d.correctTranslation || d.expectedValue) && (
+                          <p className="text-xs text-primary">
+                            ✓ {d.correctTranslation || d.expectedValue}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">{d.explanation}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
