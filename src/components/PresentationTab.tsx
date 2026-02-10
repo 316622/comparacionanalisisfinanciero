@@ -6,10 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Loader2, Database, History } from "lucide-react";
 
 const categories = [
   { value: "balance-sheet", label: "Balance General / Balance Sheet" },
@@ -18,6 +19,8 @@ const categories = [
 ];
 
 const years = ["2024", "2023", "2022", "2021", "2020"];
+
+type ViewMode = "data" | "history";
 
 interface Slide {
   id: string;
@@ -32,8 +35,10 @@ interface Slide {
 const PresentationTab = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [viewMode, setViewMode] = useState<ViewMode>("data");
   const [category, setCategory] = useState("balance-sheet");
   const [year, setYear] = useState("2024");
+  const [selectedYears, setSelectedYears] = useState<string[]>(["2024", "2023"]);
   const [slideIndex, setSlideIndex] = useState(0);
   const [slides, setSlides] = useState<Slide[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,18 +48,44 @@ const PresentationTab = () => {
   const [formContent, setFormContent] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const toggleYear = (y: string) => {
+    setSelectedYears((prev) =>
+      prev.includes(y) ? prev.filter((v) => v !== y) : [...prev, y]
+    );
+  };
+
   const fetchSlides = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("presentation_slides" as any)
-      .select("*")
-      .eq("category", category)
-      .eq("year", year)
-      .order("slide_order");
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    if (viewMode === "data") {
+      const { data, error } = await supabase
+        .from("presentation_slides")
+        .select("*")
+        .eq("category", category)
+        .eq("year", year)
+        .order("slide_order");
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      } else {
+        setSlides((data as any[]) || []);
+      }
     } else {
-      setSlides((data as any[]) || []);
+      if (selectedYears.length === 0) {
+        setSlides([]);
+        setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("presentation_slides")
+        .select("*")
+        .eq("category", category)
+        .in("year", selectedYears)
+        .order("year", { ascending: true })
+        .order("slide_order");
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      } else {
+        setSlides((data as any[]) || []);
+      }
     }
     setLoading(false);
   };
@@ -62,7 +93,7 @@ const PresentationTab = () => {
   useEffect(() => {
     setSlideIndex(0);
     fetchSlides();
-  }, [category, year]);
+  }, [category, year, viewMode, selectedYears]);
 
   const currentSlide = slides[slideIndex];
 
@@ -90,14 +121,15 @@ const PresentationTab = () => {
     setSaving(true);
     if (editing) {
       const { error } = await supabase
-        .from("presentation_slides" as any)
+        .from("presentation_slides")
         .update({ title: formTitle, content: formContent } as any)
         .eq("id", editing.id);
       if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
+      const targetYear = viewMode === "data" ? year : selectedYears[0] || "2024";
       const { error } = await supabase
-        .from("presentation_slides" as any)
-        .insert({ category, year, title: formTitle, content: formContent, slide_order: slides.length } as any);
+        .from("presentation_slides")
+        .insert({ category, year: targetYear, title: formTitle, content: formContent, slide_order: slides.length } as any);
       if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
     }
     setSaving(false);
@@ -107,7 +139,7 @@ const PresentationTab = () => {
 
   const handleDelete = async () => {
     if (!currentSlide) return;
-    const { error } = await supabase.from("presentation_slides" as any).delete().eq("id", currentSlide.id);
+    const { error } = await supabase.from("presentation_slides").delete().eq("id", currentSlide.id);
     if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
     setSlideIndex(Math.max(0, slideIndex - 1));
     fetchSlides();
@@ -115,6 +147,25 @@ const PresentationTab = () => {
 
   return (
     <div className="space-y-4">
+      {/* Mode selector */}
+      <div className="flex gap-2">
+        <Button
+          variant={viewMode === "data" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setViewMode("data")}
+        >
+          <Database className="h-4 w-4 mr-1" /> Datos / Data
+        </Button>
+        <Button
+          variant={viewMode === "history" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setViewMode("history")}
+        >
+          <History className="h-4 w-4 mr-1" /> Historial / History
+        </Button>
+      </div>
+
+      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Select value={category} onValueChange={(v) => setCategory(v)}>
           <SelectTrigger className="sm:w-[280px]">
@@ -127,16 +178,31 @@ const PresentationTab = () => {
           </SelectContent>
         </Select>
 
-        <Select value={year} onValueChange={(v) => setYear(v)}>
-          <SelectTrigger className="sm:w-[140px]">
-            <SelectValue placeholder="Año / Year" />
-          </SelectTrigger>
-          <SelectContent>
+        {viewMode === "data" ? (
+          <Select value={year} onValueChange={(v) => setYear(v)}>
+            <SelectTrigger className="sm:w-[140px]">
+              <SelectValue placeholder="Año / Year" />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="flex items-center gap-3 flex-wrap border rounded-md px-3 py-2">
+            <span className="text-sm text-muted-foreground font-medium">Años:</span>
             {years.map((y) => (
-              <SelectItem key={y} value={y}>{y}</SelectItem>
+              <label key={y} className="flex items-center gap-1.5 cursor-pointer">
+                <Checkbox
+                  checked={selectedYears.includes(y)}
+                  onCheckedChange={() => toggleYear(y)}
+                />
+                <span className="text-sm">{y}</span>
+              </label>
             ))}
-          </SelectContent>
-        </Select>
+          </div>
+        )}
 
         {user && (
           <div className="flex gap-2 ml-auto">
@@ -157,10 +223,15 @@ const PresentationTab = () => {
         )}
       </div>
 
+      {/* Slide view */}
       <Card className="min-h-[400px] flex flex-col">
         <CardHeader className="border-b bg-muted/30">
           <CardTitle className="text-lg">
-            {loading ? "Cargando..." : currentSlide ? `${currentSlide.title} — ${year}` : "Sin datos / No data"}
+            {loading
+              ? "Cargando..."
+              : currentSlide
+                ? `${currentSlide.title} — ${currentSlide.year}`
+                : "Sin datos / No data"}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center p-8">
@@ -170,9 +241,11 @@ const PresentationTab = () => {
             <p className="text-muted-foreground text-center max-w-lg whitespace-pre-wrap">{currentSlide.content}</p>
           ) : (
             <p className="text-muted-foreground text-center">
-              {user
-                ? "No hay slides. Haz clic en 'Agregar Slide' para crear uno. / No slides. Click 'Agregar Slide' to create one."
-                : "No hay datos disponibles. / No data available."}
+              {viewMode === "history" && selectedYears.length === 0
+                ? "Selecciona al menos un año. / Select at least one year."
+                : user
+                  ? "No hay slides. Haz clic en 'Agregar Slide' para crear uno."
+                  : "No hay datos disponibles. / No data available."}
             </p>
           )}
         </CardContent>
@@ -193,18 +266,18 @@ const PresentationTab = () => {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="border-foreground/30 bg-card text-card-foreground">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Slide / Edit Slide" : "Nuevo Slide / New Slide"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="space-y-4">
             <div className="space-y-2">
-              <Label>Título / Title</Label>
-              <Input required value={formTitle} onChange={(e) => setFormTitle(e.target.value)} />
+              <Label className="text-foreground">Título / Title</Label>
+              <Input required value={formTitle} onChange={(e) => setFormTitle(e.target.value)} className="border-foreground/30 text-foreground" />
             </div>
             <div className="space-y-2">
-              <Label>Contenido / Content</Label>
-              <Textarea rows={6} value={formContent} onChange={(e) => setFormContent(e.target.value)} />
+              <Label className="text-foreground">Contenido / Content</Label>
+              <Textarea rows={6} value={formContent} onChange={(e) => setFormContent(e.target.value)} className="border-foreground/30 text-foreground" />
             </div>
             <Button type="submit" className="w-full" disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
