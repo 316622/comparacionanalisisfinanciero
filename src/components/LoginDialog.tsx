@@ -22,7 +22,7 @@ const LoginDialog = () => {
     return (
       <div className="flex items-center gap-2">
         <span className="text-sm text-primary-foreground/70 hidden sm:inline">{user.email}</span>
-        <Button variant="outline" size="sm" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+        <Button variant="outline" size="sm" className="border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" onClick={signOut}>
           <LogOut className="h-4 w-4 mr-1" /> Salir
         </Button>
       </div>
@@ -53,18 +53,18 @@ const LoginDialog = () => {
           <LogIn className="h-4 w-4 mr-1" /> Iniciar Sesión
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md border-foreground/30 bg-card text-card-foreground">
         <DialogHeader>
           <DialogTitle>{isSignUp ? "Crear Cuenta / Sign Up" : "Iniciar Sesión / Sign In"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Correo / Email</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Label htmlFor="email" className="text-foreground">Correo / Email</Label>
+            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="border-foreground/30 text-foreground" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Contraseña / Password</Label>
-            <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Label htmlFor="password" className="text-foreground">Contraseña / Password</Label>
+            <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="border-foreground/30 text-foreground" />
           </div>
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
