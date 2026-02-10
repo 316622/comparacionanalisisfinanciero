@@ -3,18 +3,22 @@ import { BookOpen, Presentation, FileDiff } from "lucide-react";
 import GlossaryTab from "@/components/GlossaryTab";
 import PresentationTab from "@/components/PresentationTab";
 import ComparisonTab from "@/components/ComparisonTab";
+import LoginDialog from "@/components/LoginDialog";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold text-foreground">
-            Plataforma de Análisis Financiero
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Financial Document Analysis Platform
-          </p>
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              Plataforma de Análisis Financiero
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Financial Document Analysis Platform
+            </p>
+          </div>
+          <LoginDialog />
         </div>
       </header>
 
