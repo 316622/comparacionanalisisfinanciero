@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, FileDiff } from "lucide-react";
+import { BookOpen, Presentation, FileDiff } from "lucide-react";
 import GlossaryTab from "@/components/GlossaryTab";
+import PresentationTab from "@/components/PresentationTab";
 import ComparisonTab from "@/components/ComparisonTab";
 import LoginDialog from "@/components/LoginDialog";
 
@@ -22,8 +23,13 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <Tabs defaultValue="glossary" className="w-full">
+        <Tabs defaultValue="presentation" className="w-full">
           <TabsList className="w-full justify-start mb-6">
+            <TabsTrigger value="presentation" className="gap-2">
+              <Presentation className="h-4 w-4" />
+              <span className="hidden sm:inline">Presentación / Presentation</span>
+              <span className="sm:hidden">Presentación</span>
+            </TabsTrigger>
             <TabsTrigger value="glossary" className="gap-2">
               <BookOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Glosario / Glossary</span>
@@ -36,6 +42,9 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="presentation">
+            <PresentationTab />
+          </TabsContent>
           <TabsContent value="glossary">
             <GlossaryTab />
           </TabsContent>
