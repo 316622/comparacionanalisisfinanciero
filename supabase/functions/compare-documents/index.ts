@@ -66,8 +66,8 @@ serve(async (req) => {
 
   try {
     const formData = await req.formData();
-    const mode = formData.get("mode") as string; // "translation" or "data"
-    const baseFile = formData.get("baseFile") as string; // "file1" or "file2"
+    const mode = formData.get("mode") as string;
+    const primaryLang = formData.get("primaryLang") as string; // "es" or "en"
     
     const excel1 = formData.get("excel1") as File | null;
     const excel2 = formData.get("excel2") as File | null;
@@ -100,64 +100,70 @@ serve(async (req) => {
       return `Sheet "${s.name}":\n${cellEntries.map(([cell, val]) => `  ${cell}: ${val}`).join("\n")}`;
     }).join("\n\n");
 
+    const primaryFile = primaryLang === "es" ? "File 1 (ES)" : "File 2 (EN)";
+    const targetLang = primaryLang === "es" ? "English" : "Spanish";
+    const targetFile = primaryLang === "es" ? "File 2 (EN)" : "File 1 (ES)";
+
     const systemPrompt = mode === "translation"
-      ? `You are a bilingual (Spanish/English) financial document comparison expert. 
-Compare the following documents for TRANSLATION accuracy. 
-Identify any mistranslations, missing translations, or inaccurate translations.
+      ? `You are a bilingual (Spanish/English) financial document comparison expert.
+The PRIMARY file is: ${primaryFile}. The translation target language is ${targetLang}.
+Compare the documents for TRANSLATION accuracy. The primary file is the source of truth.
+All discrepancies should show what the ${targetLang} translation SHOULD be based on the primary file.
 
 For EVERY discrepancy found, you MUST provide:
-1. The original text and its location (file name, sheet name if Excel, cell reference if Excel, or page/section if Word)
-2. The translated text and its location
-3. What the correct translation should be
+1. The original text in the primary file and its location (file name, sheet name if Excel, cell reference if Excel, or page/section if Word)
+2. The translated text found in ${targetFile} and its location
+3. What the correct ${targetLang} translation should be
 4. Severity: "critical" (numbers/amounts wrong), "major" (meaning changed), "minor" (style/preference)
 
-Return your analysis as a JSON array with this structure:
+Return your analysis as a JSON object:
 {
   "summary": "Brief overall assessment in Spanish and English",
   "totalDiscrepancies": number,
+  "baseFile": "${primaryFile}",
   "discrepancies": [
     {
       "id": number,
       "type": "mistranslation" | "missing" | "inconsistent" | "number_mismatch",
       "severity": "critical" | "major" | "minor",
-      "sourceFile": "Excel 1 (ES)" | "Excel 2 (EN)" | "Word 1 (ES)" | "Word 2 (EN)",
+      "sourceFile": "${primaryFile}",
       "sourceLocation": "Sheet X, Cell Y" or "Section/paragraph description",
-      "sourceText": "original text",
-      "targetFile": "the other file",
+      "sourceText": "original text in primary language",
+      "targetFile": "${targetFile}",
       "targetLocation": "Sheet X, Cell Y" or "Section/paragraph description", 
       "targetText": "translated text found",
-      "correctTranslation": "what it should say",
+      "correctTranslation": "what the correct ${targetLang} translation should be",
       "explanation": "Brief explanation in Spanish and English"
     }
   ]
 }`
       : `You are a bilingual (Spanish/English) financial data comparison expert.
-The BASE file is: ${baseFile === "file1" ? "File 1 (ES)" : "File 2 (EN)"}. 
-Extract all data from the base file, translate it, and compare against the other file.
+The PRIMARY file is: ${primaryFile}. 
+Extract all data from the primary file, translate labels/headers to ${targetLang}, and compare values against ${targetFile}.
 
 For EVERY data discrepancy found, you MUST provide:
-1. The data value in the base file and its exact location (file name, sheet name, cell reference)
-2. The corresponding data in the comparison file and its exact location
-3. What the expected value should be
+1. The data value in the primary file and its exact location (file name, sheet name, cell reference)
+2. The corresponding data in ${targetFile} and its exact location
+3. What the expected value should be (translating if needed to ${targetLang})
 4. Severity: "critical" (financial amounts differ), "major" (key data differs), "minor" (formatting/rounding)
 
-Return your analysis as a JSON array with this structure:
+Return your analysis as a JSON object:
 {
   "summary": "Brief overall assessment in Spanish and English",
-  "baseFile": "${baseFile === "file1" ? "File 1 (ES)" : "File 2 (EN)"}",
+  "baseFile": "${primaryFile}",
   "totalDiscrepancies": number,
   "discrepancies": [
     {
       "id": number,
       "type": "value_mismatch" | "missing_data" | "extra_data" | "format_difference",
       "severity": "critical" | "major" | "minor",
-      "sourceFile": "file name",
+      "sourceFile": "${primaryFile}",
       "sourceLocation": "Sheet X, Cell Y" or "Section/paragraph",
-      "sourceValue": "value in base file",
-      "targetFile": "comparison file name",
+      "sourceValue": "value in primary file",
+      "targetFile": "${targetFile}",
       "targetLocation": "Sheet X, Cell Y" or "Section/paragraph",
       "targetValue": "value in comparison file",
-      "expectedValue": "what the correct value should be",
+      "expectedValue": "what the correct value should be (translated to ${targetLang} if applicable)",
       "explanation": "Brief explanation in Spanish and English"
     }
   ]

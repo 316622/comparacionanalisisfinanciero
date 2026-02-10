@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 type ComparisonMode = "translation" | "data" | null;
-type BaseFile = "file1" | "file2";
+type PrimaryLanguage = "es" | "en";
 
 interface FileSlot {
   label: string;
@@ -57,7 +57,7 @@ const severityLabel: Record<string, string> = {
 const ComparisonTab = () => {
   const { toast } = useToast();
   const [mode, setMode] = useState<ComparisonMode>(null);
-  const [baseFile, setBaseFile] = useState<BaseFile>("file1");
+  const [primaryLang, setPrimaryLang] = useState<PrimaryLanguage>("es");
   const [files, setFiles] = useState<FileSlot[]>([
     { label: "Excel File 1 (ES)", accept: ".xlsx,.xls,.csv", icon: <FileSpreadsheet className="h-6 w-6" />, file: null },
     { label: "Excel File 2 (EN)", accept: ".xlsx,.xls,.csv", icon: <FileSpreadsheet className="h-6 w-6" />, file: null },
@@ -82,7 +82,7 @@ const ComparisonTab = () => {
     try {
       const formData = new FormData();
       formData.append("mode", mode);
-      formData.append("baseFile", baseFile);
+      formData.append("primaryLang", primaryLang);
       formData.append("excel1", files[0].file!);
       formData.append("excel2", files[1].file!);
       formData.append("word1", files[2].file!);
@@ -199,28 +199,30 @@ const ComparisonTab = () => {
         </div>
       </div>
 
-      {/* Step 2: Base file selector (only for data comparison) */}
-      {mode === "data" && (
+      {/* Step 2: Primary language (for both modes) */}
+      {mode && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3">
-            Paso 2: Archivo Base / Step 2: Base File
+            Paso 2: Archivo Principal / Step 2: Primary File
           </h3>
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <FileCheck className="h-5 w-5 text-primary" />
               <div className="flex-1">
-                <p className="text-sm font-medium">Seleccione el archivo principal / Select the main file</p>
+                <p className="text-sm font-medium">¿Cuál es el archivo principal? / Which is the primary file?</p>
                 <p className="text-xs text-muted-foreground">
-                  Este archivo se usará como referencia base / This file will be used as the base reference
+                  {mode === "translation"
+                    ? "Las traducciones se verificarán hacia el otro idioma / Translations will be verified toward the other language"
+                    : "Los datos se extraerán del archivo principal y se compararán con el otro / Data will be extracted from the primary file and compared with the other"}
                 </p>
               </div>
-              <Select value={baseFile} onValueChange={(v) => setBaseFile(v as BaseFile)}>
-                <SelectTrigger className="w-[180px]">
+              <Select value={primaryLang} onValueChange={(v) => setPrimaryLang(v as PrimaryLanguage)}>
+                <SelectTrigger className="w-[220px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="file1">Archivo 1 / File 1 (ES)</SelectItem>
-                  <SelectItem value="file2">Archivo 2 / File 2 (EN)</SelectItem>
+                  <SelectItem value="es">Español (ES) — Archivo 1</SelectItem>
+                  <SelectItem value="en">English (EN) — Archivo 2</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -232,7 +234,7 @@ const ComparisonTab = () => {
       {mode && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3">
-            {mode === "data" ? "Paso 3" : "Paso 2"}: Subir Archivos / Upload Files
+            Paso 3: Subir Archivos / Step 3: Upload Files
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {files.map((slot, idx) => (
@@ -240,9 +242,9 @@ const ComparisonTab = () => {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     {slot.icon} {slot.label}
-                    {mode === "data" && (
-                      (baseFile === "file1" && (idx === 0 || idx === 2)) ||
-                      (baseFile === "file2" && (idx === 1 || idx === 3))
+                    {(
+                      (primaryLang === "es" && (idx === 0 || idx === 2)) ||
+                      (primaryLang === "en" && (idx === 1 || idx === 3))
                     ) && (
                       <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">Base</span>
                     )}
