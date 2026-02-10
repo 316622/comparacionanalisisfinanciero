@@ -14,7 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      glossary_terms: {
+        Row: {
+          category: string | null
+          created_at: string
+          definition: string | null
+          id: string
+          term_en: string
+          term_es: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          definition?: string | null
+          id?: string
+          term_en: string
+          term_es: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          definition?: string | null
+          id?: string
+          term_en?: string
+          term_es?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      presentation_slides: {
+        Row: {
+          category: string
+          chart_data: Json | null
+          content: string | null
+          created_at: string
+          id: string
+          slide_order: number
+          title: string
+          updated_at: string
+          year: string
+        }
+        Insert: {
+          category: string
+          chart_data?: Json | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          slide_order?: number
+          title: string
+          updated_at?: string
+          year: string
+        }
+        Update: {
+          category?: string
+          chart_data?: Json | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          slide_order?: number
+          title?: string
+          updated_at?: string
+          year?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

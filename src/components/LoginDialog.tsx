@@ -1,0 +1,85 @@
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/hooks/useAuth";
+import { LogIn, LogOut, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+const LoginDialog = () => {
+  const { user, signIn, signUp, signOut, loading } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  if (loading) return null;
+
+  if (user) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground hidden sm:inline">{user.email}</span>
+        <Button variant="outline" size="sm" onClick={signOut}>
+          <LogOut className="h-4 w-4 mr-1" /> Salir
+        </Button>
+      </div>
+    );
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    const { error } = isSignUp ? await signUp(email, password) : await signIn(email, password);
+    setSubmitting(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else if (isSignUp) {
+      toast({ title: "Cuenta creada", description: "Revisa tu correo para confirmar. / Check your email to confirm." });
+      setOpen(false);
+    } else {
+      setOpen(false);
+    }
+    setEmail("");
+    setPassword("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <LogIn className="h-4 w-4 mr-1" /> Iniciar Sesión
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{isSignUp ? "Crear Cuenta / Sign Up" : "Iniciar Sesión / Sign In"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Correo / Email</Label>
+            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Contraseña / Password</Label>
+            <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          <Button type="submit" className="w-full" disabled={submitting}>
+            {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isSignUp ? "Crear Cuenta / Sign Up" : "Iniciar Sesión / Sign In"}
+          </Button>
+          <p className="text-sm text-center text-muted-foreground">
+            {isSignUp ? "¿Ya tienes cuenta?" : "¿No tienes cuenta?"}{" "}
+            <button type="button" className="text-primary underline" onClick={() => setIsSignUp(!isSignUp)}>
+              {isSignUp ? "Iniciar Sesión / Sign In" : "Crear Cuenta / Sign Up"}
+            </button>
+          </p>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default LoginDialog;
