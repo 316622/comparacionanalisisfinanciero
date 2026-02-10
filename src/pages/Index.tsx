@@ -23,17 +23,17 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <Tabs defaultValue="glossary" className="w-full">
+        <Tabs defaultValue="presentation" className="w-full">
           <TabsList className="w-full justify-start mb-6">
-            <TabsTrigger value="glossary" className="gap-2">
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">Glosario / Glossary</span>
-              <span className="sm:hidden">Glosario</span>
-            </TabsTrigger>
             <TabsTrigger value="presentation" className="gap-2">
               <Presentation className="h-4 w-4" />
               <span className="hidden sm:inline">Presentación / Presentation</span>
               <span className="sm:hidden">Presentación</span>
+            </TabsTrigger>
+            <TabsTrigger value="glossary" className="gap-2">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Glosario / Glossary</span>
+              <span className="sm:hidden">Glosario</span>
             </TabsTrigger>
             <TabsTrigger value="comparison" className="gap-2">
               <FileDiff className="h-4 w-4" />
@@ -42,11 +42,11 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="glossary">
-            <GlossaryTab />
-          </TabsContent>
           <TabsContent value="presentation">
             <PresentationTab />
+          </TabsContent>
+          <TabsContent value="glossary">
+            <GlossaryTab />
           </TabsContent>
           <TabsContent value="comparison">
             <ComparisonTab />
