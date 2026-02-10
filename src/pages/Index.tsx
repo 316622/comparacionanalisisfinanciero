@@ -8,13 +8,13 @@ import LoginDialog from "@/components/LoginDialog";
 const Index = () => {
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card">
+      <header className="border-b bg-primary text-primary-foreground shadow-md">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">
+            <h1 className="text-2xl font-bold tracking-tight">
               Plataforma de Análisis Financiero
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-primary-foreground/70">
               Financial Document Analysis Platform
             </p>
           </div>
