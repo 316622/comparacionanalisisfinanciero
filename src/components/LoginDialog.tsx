@@ -49,7 +49,7 @@ const LoginDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground">
+        <Button size="sm" variant="secondary" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90">
           <LogIn className="h-4 w-4 mr-1" /> Iniciar Sesión
         </Button>
       </DialogTrigger>
