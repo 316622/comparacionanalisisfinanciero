@@ -7,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { LogIn, LogOut, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const ACCESS_CODE = "FINANZAS2025";
+const ACCESS_CODE = "RelacionConElInversionista";
 
 const LoginDialog = () => {
   const { user, signIn, signUp, signOut, loading } = useAuth();
