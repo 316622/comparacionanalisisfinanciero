@@ -236,8 +236,8 @@ const ComparisonTab = () => {
         </div>
       </div>
 
-      {/* Step 2: Primary language (for both modes) */}
-      {mode && (
+      {/* Step 2: Primary language (only for translation mode) */}
+      {mode === "translation" && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3">
             Paso 2: Archivo Principal / Step 2: Primary File
@@ -248,9 +248,7 @@ const ComparisonTab = () => {
               <div className="flex-1">
                 <p className="text-sm font-medium">¿Cuál es el archivo principal? / Which is the primary file?</p>
                 <p className="text-xs text-muted-foreground">
-                  {mode === "translation"
-                    ? "Las traducciones se verificarán hacia el otro idioma / Translations will be verified toward the other language"
-                    : "Los datos se extraerán del archivo principal y se compararán con el otro / Data will be extracted from the primary file and compared with the other"}
+                  Las traducciones se verificarán hacia el otro idioma / Translations will be verified toward the other language
                 </p>
               </div>
               <Select value={primaryLang} onValueChange={(v) => setPrimaryLang(v as PrimaryLanguage)}>
@@ -271,7 +269,7 @@ const ComparisonTab = () => {
       {mode && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3">
-            Paso 3: Idiomas de Archivos / Step 3: File Languages
+            Paso {mode === "translation" ? "3" : "2"}: Idiomas de Archivos / Step {mode === "translation" ? "3" : "2"}: File Languages
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card className="p-4">
@@ -320,7 +318,7 @@ const ComparisonTab = () => {
       {mode && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3">
-            Paso 4: Subir Archivos / Step 4: Upload Files
+            Paso {mode === "translation" ? "4" : "3"}: Subir Archivos / Step {mode === "translation" ? "4" : "3"}: Upload Files
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {getFileSlots().map((slot, idx) => (
