@@ -10,6 +10,13 @@ import { supabase } from "@/integrations/supabase/client";
 
 type ComparisonMode = "translation" | "data" | null;
 type PrimaryLanguage = "es" | "en";
+type LangPair = "es-en" | "es-es" | "en-en";
+
+const langPairLabels: Record<LangPair, { file1: string; file2: string; label: string }> = {
+  "es-en": { file1: "ES", file2: "EN", label: "Español vs English" },
+  "es-es": { file1: "ES", file2: "ES", label: "Español vs Español" },
+  "en-en": { file1: "EN", file2: "EN", label: "English vs English" },
+};
 
 interface FileSlot {
   label: string;
@@ -58,6 +65,20 @@ const ComparisonTab = () => {
   const { toast } = useToast();
   const [mode, setMode] = useState<ComparisonMode>(null);
   const [primaryLang, setPrimaryLang] = useState<PrimaryLanguage>("es");
+  const [excelLangPair, setExcelLangPair] = useState<LangPair>("es-en");
+  const [wordLangPair, setWordLangPair] = useState<LangPair>("es-en");
+
+  const getFileSlots = (): FileSlot[] => {
+    const ep = langPairLabels[excelLangPair];
+    const wp = langPairLabels[wordLangPair];
+    return [
+      { label: `Excel File 1 (${ep.file1})`, accept: ".xlsx,.xls,.csv", icon: <FileSpreadsheet className="h-6 w-6" />, file: files[0]?.file ?? null },
+      { label: `Excel File 2 (${ep.file2})`, accept: ".xlsx,.xls,.csv", icon: <FileSpreadsheet className="h-6 w-6" />, file: files[1]?.file ?? null },
+      { label: `Word File 1 (${wp.file1})`, accept: ".docx,.doc", icon: <FileText className="h-6 w-6" />, file: files[2]?.file ?? null },
+      { label: `Word File 2 (${wp.file2})`, accept: ".docx,.doc", icon: <FileText className="h-6 w-6" />, file: files[3]?.file ?? null },
+    ];
+  };
+
   const [files, setFiles] = useState<FileSlot[]>([
     { label: "Excel File 1 (ES)", accept: ".xlsx,.xls,.csv", icon: <FileSpreadsheet className="h-6 w-6" />, file: null },
     { label: "Excel File 2 (EN)", accept: ".xlsx,.xls,.csv", icon: <FileSpreadsheet className="h-6 w-6" />, file: null },
@@ -83,6 +104,8 @@ const ComparisonTab = () => {
       const formData = new FormData();
       formData.append("mode", mode);
       formData.append("primaryLang", primaryLang);
+      formData.append("excelLangPair", excelLangPair);
+      formData.append("wordLangPair", wordLangPair);
       formData.append("excel1", files[0].file!);
       formData.append("excel2", files[1].file!);
       formData.append("word1", files[2].file!);
@@ -244,14 +267,63 @@ const ComparisonTab = () => {
         </div>
       )}
 
+      {/* Step 3: Language pairs */}
+      {mode && (
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-3">
+            Paso 3: Idiomas de Archivos / Step 3: File Languages
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Excel</p>
+                  <p className="text-xs text-muted-foreground">Combinación de idiomas / Language combination</p>
+                </div>
+                <Select value={excelLangPair} onValueChange={(v) => { setExcelLangPair(v as LangPair); setResults(null); }}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="es-en">Español vs English</SelectItem>
+                    <SelectItem value="es-es">Español vs Español</SelectItem>
+                    <SelectItem value="en-en">English vs English</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-primary shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Word</p>
+                  <p className="text-xs text-muted-foreground">Combinación de idiomas / Language combination</p>
+                </div>
+                <Select value={wordLangPair} onValueChange={(v) => { setWordLangPair(v as LangPair); setResults(null); }}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="es-en">Español vs English</SelectItem>
+                    <SelectItem value="es-es">Español vs Español</SelectItem>
+                    <SelectItem value="en-en">English vs English</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
       {/* Upload files */}
       {mode && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3">
-            Paso 3: Subir Archivos / Step 3: Upload Files
+            Paso 4: Subir Archivos / Step 4: Upload Files
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {files.map((slot, idx) => (
+            {getFileSlots().map((slot, idx) => (
               <Card key={idx} className="relative">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -266,10 +338,10 @@ const ComparisonTab = () => {
                 </CardHeader>
                 <CardContent>
                   <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer hover:border-primary/50 transition-colors">
-                    {slot.file ? (
+                    {files[idx]?.file ? (
                       <div className="text-center">
-                        <p className="text-sm font-medium truncate max-w-[200px]">{slot.file.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{(slot.file.size / 1024).toFixed(1)} KB</p>
+                        <p className="text-sm font-medium truncate max-w-[200px]">{files[idx].file!.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{(files[idx].file!.size / 1024).toFixed(1)} KB</p>
                       </div>
                     ) : (
                       <div className="text-center text-muted-foreground">
