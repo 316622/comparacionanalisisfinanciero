@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 type ComparisonMode = "translation" | "data" | null;
 type PrimaryLanguage = "es" | "en";
 type LangPair = "es-en" | "es-es" | "en-en";
+type DocType = "excel" | "word" | null;
 
 const langPairLabels: Record<LangPair, { file1: string; file2: string; label: string }> = {
   "es-en": { file1: "ES", file2: "EN", label: "Español vs English" },
@@ -65,38 +66,21 @@ const ComparisonTab = () => {
   const { toast } = useToast();
   const [mode, setMode] = useState<ComparisonMode>(null);
   const [primaryLang, setPrimaryLang] = useState<PrimaryLanguage>("es");
-  const [excelLangPair, setExcelLangPair] = useState<LangPair>("es-en");
-  const [wordLangPair, setWordLangPair] = useState<LangPair>("es-en");
-
-  const getFileSlots = (): FileSlot[] => {
-    const ep = langPairLabels[excelLangPair];
-    const wp = langPairLabels[wordLangPair];
-    return [
-      { label: `Excel File 1 (${ep.file1})`, accept: ".xlsx,.xls,.csv", icon: <FileSpreadsheet className="h-6 w-6" />, file: files[0]?.file ?? null },
-      { label: `Excel File 2 (${ep.file2})`, accept: ".xlsx,.xls,.csv", icon: <FileSpreadsheet className="h-6 w-6" />, file: files[1]?.file ?? null },
-      { label: `Word File 1 (${wp.file1})`, accept: ".docx,.doc", icon: <FileText className="h-6 w-6" />, file: files[2]?.file ?? null },
-      { label: `Word File 2 (${wp.file2})`, accept: ".docx,.doc", icon: <FileText className="h-6 w-6" />, file: files[3]?.file ?? null },
-    ];
-  };
-
-  const [files, setFiles] = useState<FileSlot[]>([
-    { label: "Excel File 1 (ES)", accept: ".xlsx,.xls,.csv", icon: <FileSpreadsheet className="h-6 w-6" />, file: null },
-    { label: "Excel File 2 (EN)", accept: ".xlsx,.xls,.csv", icon: <FileSpreadsheet className="h-6 w-6" />, file: null },
-    { label: "Word File 1 (ES)", accept: ".docx,.doc", icon: <FileText className="h-6 w-6" />, file: null },
-    { label: "Word File 2 (EN)", accept: ".docx,.doc", icon: <FileText className="h-6 w-6" />, file: null },
-  ]);
+  const [docType, setDocType] = useState<DocType>(null);
+  const [langPair, setLangPair] = useState<LangPair>("es-en");
+  const [file1, setFile1] = useState<File | null>(null);
+  const [file2, setFile2] = useState<File | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const [results, setResults] = useState<ComparisonResult | null>(null);
 
-  const handleFileChange = useCallback((index: number, file: File | null) => {
-    setFiles((prev) => prev.map((slot, i) => (i === index ? { ...slot, file } : slot)));
-    setResults(null);
-  }, []);
+  const lp = langPairLabels[langPair];
+  const accept = docType === "excel" ? ".xlsx,.xls,.csv" : ".docx,.doc";
+  const DocIcon = docType === "excel" ? FileSpreadsheet : FileText;
 
-  const allUploaded = files.every((f) => f.file !== null);
+  const bothUploaded = file1 !== null && file2 !== null;
 
   const handleCompare = async () => {
-    if (!mode) return;
+    if (!mode || !docType || !file1 || !file2) return;
     setIsComparing(true);
     setResults(null);
 
@@ -104,12 +88,10 @@ const ComparisonTab = () => {
       const formData = new FormData();
       formData.append("mode", mode);
       formData.append("primaryLang", primaryLang);
-      formData.append("excelLangPair", excelLangPair);
-      formData.append("wordLangPair", wordLangPair);
-      formData.append("excel1", files[0].file!);
-      formData.append("excel2", files[1].file!);
-      formData.append("word1", files[2].file!);
-      formData.append("word2", files[3].file!);
+      formData.append("docType", docType);
+      formData.append("langPair", langPair);
+      formData.append("file1", file1);
+      formData.append("file2", file2);
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/compare-documents`,
@@ -236,11 +218,68 @@ const ComparisonTab = () => {
         </div>
       </div>
 
-      {/* Step 2: Primary language (only for translation mode) */}
-      {mode === "translation" && (
+      {/* Step 2: Document type */}
+      {mode && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3">
-            Paso 2: Archivo Principal / Step 2: Primary File
+            Paso 2: Tipo de Documento / Step 2: Document Type
+          </h3>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <FileCheck className="h-5 w-5 text-primary" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">¿Qué tipo de documento? / What document type?</p>
+              </div>
+              <Select value={docType ?? ""} onValueChange={(v) => { setDocType(v as DocType); setFile1(null); setFile2(null); setResults(null); }}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Seleccionar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="excel">
+                    <span className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Excel</span>
+                  </SelectItem>
+                  <SelectItem value="word">
+                    <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Word</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Step 3: Language pair */}
+      {mode && docType && (
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-3">
+            Paso 3: Idiomas / Step 3: Languages
+          </h3>
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <Languages className="h-5 w-5 text-primary" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Combinación de idiomas / Language combination</p>
+              </div>
+              <Select value={langPair} onValueChange={(v) => { setLangPair(v as LangPair); setResults(null); }}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="es-en">Español vs English</SelectItem>
+                  <SelectItem value="es-es">Español vs Español</SelectItem>
+                  <SelectItem value="en-en">English vs English</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Step 3.5: Primary language (only for translation mode) */}
+      {mode === "translation" && docType && (
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-3">
+            Paso 4: Archivo Principal / Step 4: Primary File
           </h3>
           <Card className="p-4">
             <div className="flex items-center gap-3">
@@ -256,8 +295,8 @@ const ComparisonTab = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="es">Español (ES) — Archivo 1</SelectItem>
-                  <SelectItem value="en">English (EN) — Archivo 2</SelectItem>
+                  <SelectItem value="es">Archivo 1 ({lp.file1})</SelectItem>
+                  <SelectItem value="en">Archivo 2 ({lp.file2})</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -265,101 +304,56 @@ const ComparisonTab = () => {
         </div>
       )}
 
-      {/* Step 3: Language pairs */}
-      {mode && (
-        <div>
-          <h3 className="text-sm font-semibold text-foreground mb-3">
-            Paso {mode === "translation" ? "3" : "2"}: Idiomas de Archivos / Step {mode === "translation" ? "3" : "2"}: File Languages
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <FileSpreadsheet className="h-5 w-5 text-primary shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Excel</p>
-                  <p className="text-xs text-muted-foreground">Combinación de idiomas / Language combination</p>
-                </div>
-                <Select value={excelLangPair} onValueChange={(v) => { setExcelLangPair(v as LangPair); setResults(null); }}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="es-en">Español vs English</SelectItem>
-                    <SelectItem value="es-es">Español vs Español</SelectItem>
-                    <SelectItem value="en-en">English vs English</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </Card>
-            <Card className="p-4">
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-primary shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">Word</p>
-                  <p className="text-xs text-muted-foreground">Combinación de idiomas / Language combination</p>
-                </div>
-                <Select value={wordLangPair} onValueChange={(v) => { setWordLangPair(v as LangPair); setResults(null); }}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="es-en">Español vs English</SelectItem>
-                    <SelectItem value="es-es">Español vs Español</SelectItem>
-                    <SelectItem value="en-en">English vs English</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </Card>
-          </div>
-        </div>
-      )}
-
       {/* Upload files */}
-      {mode && (
+      {mode && docType && (
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3">
-            Paso {mode === "translation" ? "4" : "3"}: Subir Archivos / Step {mode === "translation" ? "4" : "3"}: Upload Files
+            Paso {mode === "translation" ? "5" : "4"}: Subir Archivos / Step {mode === "translation" ? "5" : "4"}: Upload Files
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {getFileSlots().map((slot, idx) => (
-              <Card key={idx} className="relative">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    {slot.icon} {slot.label}
-                    {(
-                      (primaryLang === "es" && (idx === 0 || idx === 2)) ||
-                      (primaryLang === "en" && (idx === 1 || idx === 3))
-                    ) && (
-                      <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">Base</span>
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer hover:border-primary/50 transition-colors">
-                    {files[idx]?.file ? (
-                      <div className="text-center">
-                        <p className="text-sm font-medium truncate max-w-[200px]">{files[idx].file!.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{(files[idx].file!.size / 1024).toFixed(1)} KB</p>
-                      </div>
-                    ) : (
-                      <div className="text-center text-muted-foreground">
-                        <Upload className="h-8 w-8 mx-auto mb-2" />
-                        <p className="text-sm">Click para subir / Click to upload</p>
-                      </div>
-                    )}
-                    <input type="file" accept={slot.accept} className="hidden" onChange={(e) => handleFileChange(idx, e.target.files?.[0] || null)} />
-                  </label>
-                </CardContent>
-              </Card>
-            ))}
+            {[0, 1].map((idx) => {
+              const fileLabel = idx === 0 ? `${docType === "excel" ? "Excel" : "Word"} File 1 (${lp.file1})` : `${docType === "excel" ? "Excel" : "Word"} File 2 (${lp.file2})`;
+              const currentFile = idx === 0 ? file1 : file2;
+              const setFile = idx === 0 ? setFile1 : setFile2;
+              return (
+                <Card key={idx} className="relative">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <DocIcon className="h-6 w-6" /> {fileLabel}
+                      {mode === "translation" && (
+                        (primaryLang === "es" && idx === 0) || (primaryLang === "en" && idx === 1)
+                      ) && (
+                        <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded-full">Base</span>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer hover:border-primary/50 transition-colors">
+                      {currentFile ? (
+                        <div className="text-center">
+                          <p className="text-sm font-medium truncate max-w-[200px]">{currentFile.name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{(currentFile.size / 1024).toFixed(1)} KB</p>
+                        </div>
+                      ) : (
+                        <div className="text-center text-muted-foreground">
+                          <Upload className="h-8 w-8 mx-auto mb-2" />
+                          <p className="text-sm">Click para subir / Click to upload</p>
+                        </div>
+                      )}
+                      <input type="file" accept={accept} className="hidden" onChange={(e) => { setFile(e.target.files?.[0] || null); setResults(null); }} />
+                    </label>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* Compare button */}
-      {mode && (
+      {mode && docType && (
         <div className="flex justify-center">
-          <Button size="lg" disabled={!allUploaded || isComparing} onClick={handleCompare}>
+          <Button size="lg" disabled={!bothUploaded || isComparing} onClick={handleCompare}>
             {isComparing ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analizando con IA... / Analyzing with AI...</>
             ) : mode === "translation" ? (
