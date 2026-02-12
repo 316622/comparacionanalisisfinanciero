@@ -11,6 +11,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Loader2, Database, History } from "lucide-react";
+import { z } from "zod";
+
+const slideSchema = z.object({
+  title: z.string().trim().min(1, "El título es requerido").max(300, "Máximo 300 caracteres"),
+  content: z.string().trim().max(10000, "Máximo 10000 caracteres").optional().nullable(),
+});
 
 const categories = [
   { value: "balance-sheet", label: "Balance General / Balance Sheet" },
@@ -118,19 +124,31 @@ const PresentationTab = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const parseResult = slideSchema.safeParse({
+      title: formTitle,
+      content: formContent || null,
+    });
+
+    if (!parseResult.success) {
+      toast({ title: "Error de validación", description: parseResult.error.errors[0].message, variant: "destructive" });
+      return;
+    }
+
+    const validated = parseResult.data;
     setSaving(true);
     if (editing) {
       const { error } = await supabase
         .from("presentation_slides")
-        .update({ title: formTitle, content: formContent } as any)
+        .update(validated as any)
         .eq("id", editing.id);
-      if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+      if (error) toast({ title: "Error", description: "No se pudo guardar. / Could not save.", variant: "destructive" });
     } else {
       const targetYear = viewMode === "data" ? year : selectedYears[0] || "2024";
       const { error } = await supabase
         .from("presentation_slides")
-        .insert({ category, year: targetYear, title: formTitle, content: formContent, slide_order: slides.length } as any);
-      if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+        .insert({ ...validated, category, year: targetYear, slide_order: slides.length } as any);
+      if (error) toast({ title: "Error", description: "No se pudo guardar. / Could not save.", variant: "destructive" });
     }
     setSaving(false);
     setDialogOpen(false);
