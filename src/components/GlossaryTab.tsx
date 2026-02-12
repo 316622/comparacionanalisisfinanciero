@@ -5,9 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Search, Plus, Pencil, Trash2, Loader2, BookOpen, X } from "lucide-react";
+import { useGlossaryCategories, type CategoryTree } from "@/hooks/useGlossaryCategories";
+import { logAuditEvent } from "@/hooks/useAuditLog";
+import { Search, Plus, Pencil, Trash2, Loader2, BookOpen, X, FolderTree } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
@@ -23,15 +26,54 @@ interface GlossaryTerm {
   term_en: string;
   definition: string | null;
   category: string | null;
+  category_id: string | null;
 }
 
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
+const CategorySelect = ({
+  tree,
+  value,
+  onChange,
+  placeholder = "Todas las categorías",
+  allowAll = true,
+}: {
+  tree: CategoryTree[];
+  value: string | null;
+  onChange: (v: string | null) => void;
+  placeholder?: string;
+  allowAll?: boolean;
+}) => {
+  const renderOptions = (nodes: CategoryTree[], depth = 0): React.ReactNode[] =>
+    nodes.flatMap((n) => [
+      <SelectItem key={n.id} value={n.id}>
+        <span style={{ paddingLeft: depth * 16 }}>
+          {depth > 0 ? "└ " : ""}{n.name_es} / {n.name_en}
+        </span>
+      </SelectItem>,
+      ...renderOptions(n.children, depth + 1),
+    ]);
+
+  return (
+    <Select value={value || "all"} onValueChange={(v) => onChange(v === "all" ? null : v)}>
+      <SelectTrigger className="w-full sm:w-[260px]">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {allowAll && <SelectItem value="all">{placeholder}</SelectItem>}
+        {renderOptions(tree)}
+      </SelectContent>
+    </Select>
+  );
+};
+
 const GlossaryTab = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { tree, categories } = useGlossaryCategories();
   const [search, setSearch] = useState("");
   const [activeLetter, setActiveLetter] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [terms, setTerms] = useState<GlossaryTerm[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -39,6 +81,7 @@ const GlossaryTab = () => {
   const [formEs, setFormEs] = useState("");
   const [formEn, setFormEn] = useState("");
   const [formDef, setFormDef] = useState("");
+  const [formCategoryId, setFormCategoryId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const fetchTerms = async () => {
@@ -56,8 +99,25 @@ const GlossaryTab = () => {
 
   useEffect(() => { fetchTerms(); }, []);
 
+  // Get all descendant category IDs for a given category
+  const getCategoryAndDescendants = (categoryId: string): string[] => {
+    const ids = [categoryId];
+    const findChildren = (parentId: string) => {
+      categories.filter(c => c.parent_id === parentId).forEach(c => {
+        ids.push(c.id);
+        findChildren(c.id);
+      });
+    };
+    findChildren(categoryId);
+    return ids;
+  };
+
   const filtered = useMemo(() => {
     let result = terms;
+    if (activeCategory) {
+      const validIds = getCategoryAndDescendants(activeCategory);
+      result = result.filter((t) => t.category_id && validIds.includes(t.category_id));
+    }
     if (activeLetter) {
       result = result.filter(
         (t) => t.term_es.toUpperCase().startsWith(activeLetter) || t.term_en.toUpperCase().startsWith(activeLetter)
@@ -73,13 +133,20 @@ const GlossaryTab = () => {
       );
     }
     return result;
-  }, [search, activeLetter, terms]);
+  }, [search, activeLetter, activeCategory, terms, categories]);
+
+  const getCategoryName = (categoryId: string | null) => {
+    if (!categoryId) return null;
+    const cat = categories.find(c => c.id === categoryId);
+    return cat ? cat.name_es : null;
+  };
 
   const openNew = () => {
     setEditing(null);
     setFormEs("");
     setFormEn("");
     setFormDef("");
+    setFormCategoryId(null);
     setDialogOpen(true);
   };
 
@@ -88,6 +155,7 @@ const GlossaryTab = () => {
     setFormEs(term.term_es);
     setFormEn(term.term_en);
     setFormDef(term.definition || "");
+    setFormCategoryId(term.category_id);
     setDialogOpen(true);
   };
 
@@ -105,19 +173,27 @@ const GlossaryTab = () => {
       return;
     }
 
-    const validated = parseResult.data;
+    const validated = { ...parseResult.data, category_id: formCategoryId };
     setSaving(true);
     if (editing) {
       const { error } = await supabase
         .from("glossary_terms" as any)
         .update(validated as any)
         .eq("id", editing.id);
-      if (error) toast({ title: "Error", description: "No se pudo guardar. / Could not save.", variant: "destructive" });
+      if (error) {
+        toast({ title: "Error", description: "No se pudo guardar. / Could not save.", variant: "destructive" });
+      } else {
+        logAuditEvent("glossary_term_updated", { term_id: editing.id, term_es: formEs });
+      }
     } else {
       const { error } = await supabase
         .from("glossary_terms" as any)
         .insert(validated as any);
-      if (error) toast({ title: "Error", description: "No se pudo guardar. / Could not save.", variant: "destructive" });
+      if (error) {
+        toast({ title: "Error", description: "No se pudo guardar. / Could not save.", variant: "destructive" });
+      } else {
+        logAuditEvent("glossary_term_created", { term_es: formEs, term_en: formEn });
+      }
     }
     setSaving(false);
     setDialogOpen(false);
@@ -125,8 +201,13 @@ const GlossaryTab = () => {
   };
 
   const handleDelete = async (id: string) => {
+    const term = terms.find(t => t.id === id);
     const { error } = await supabase.from("glossary_terms" as any).delete().eq("id", id);
-    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      logAuditEvent("glossary_term_deleted", { term_id: id, term_es: term?.term_es });
+    }
     fetchTerms();
   };
 
@@ -143,8 +224,8 @@ const GlossaryTab = () => {
         </div>
       </div>
 
-      {/* Search + Add */}
-      <div className="flex gap-2">
+      {/* Search + Category Filter + Add */}
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -159,8 +240,12 @@ const GlossaryTab = () => {
             </button>
           )}
         </div>
+        <div className="flex items-center gap-2">
+          <FolderTree className="h-4 w-4 text-muted-foreground shrink-0" />
+          <CategorySelect tree={tree} value={activeCategory} onChange={setActiveCategory} />
+        </div>
         {user && (
-          <Button onClick={openNew} size="sm" className="gap-1">
+          <Button onClick={openNew} size="sm" className="gap-1 shrink-0">
             <Plus className="h-4 w-4" /> Agregar
           </Button>
         )}
@@ -230,6 +315,12 @@ const GlossaryTab = () => {
                   <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5 border-secondary/50 text-secondary">EN</Badge>
                   <span className="font-medium text-foreground/80 text-sm">{term.term_en}</span>
                 </div>
+                {getCategoryName(term.category_id) && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    <FolderTree className="h-3 w-3 mr-1" />
+                    {getCategoryName(term.category_id)}
+                  </Badge>
+                )}
                 {term.definition && (
                   <p className="text-xs text-muted-foreground leading-relaxed pt-1 border-t border-border/50">
                     {term.definition}
@@ -260,6 +351,10 @@ const GlossaryTab = () => {
             <div className="space-y-2">
               <Label>English</Label>
               <Input required value={formEn} onChange={(e) => setFormEn(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Categoría / Category</Label>
+              <CategorySelect tree={tree} value={formCategoryId} onChange={setFormCategoryId} placeholder="Sin categoría / No category" />
             </div>
             <div className="space-y-2">
               <Label>Definición / Definition</Label>

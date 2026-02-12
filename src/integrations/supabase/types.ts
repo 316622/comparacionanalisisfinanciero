@@ -14,9 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          ip_address: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          ip_address?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      glossary_categories: {
+        Row: {
+          created_at: string
+          id: string
+          name_en: string
+          name_es: string
+          parent_id: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name_en: string
+          name_es: string
+          parent_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name_en?: string
+          name_es?: string
+          parent_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "glossary_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "glossary_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       glossary_terms: {
         Row: {
           category: string | null
+          category_id: string | null
           created_at: string
           definition: string | null
           id: string
@@ -26,6 +95,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          category_id?: string | null
           created_at?: string
           definition?: string | null
           id?: string
@@ -35,6 +105,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          category_id?: string | null
           created_at?: string
           definition?: string | null
           id?: string
@@ -42,7 +113,15 @@ export type Database = {
           term_es?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "glossary_terms_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "glossary_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       presentation_slides: {
         Row: {

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, FileText, AlertTriangle, Loader2, Languages, Database, FileCheck, Download, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { logAuditEvent } from "@/hooks/useAuditLog";
 
 type ComparisonMode = "translation" | "data" | null;
 type PrimaryLanguage = "es" | "en";
@@ -95,6 +96,7 @@ const ComparisonTab = () => {
 
     setIsComparing(true);
     setResults(null);
+    logAuditEvent("comparison_started", { mode, docType, langPair });
 
     try {
       const formData = new FormData();
@@ -138,6 +140,7 @@ const ComparisonTab = () => {
 
       const data: ComparisonResult = await response.json();
       setResults(data);
+      logAuditEvent("comparison_completed", { mode, discrepancies: data.totalDiscrepancies });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
