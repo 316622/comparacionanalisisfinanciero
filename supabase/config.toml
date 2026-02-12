@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.protected-signup]
 verify_jwt = false
+
+[functions.semantic-search]
+verify_jwt = false
+
+[functions.extract-glossary-terms]
+verify_jwt = false

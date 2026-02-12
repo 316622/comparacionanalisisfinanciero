@@ -4,10 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, FileText, AlertTriangle, Loader2, Languages, Database, FileCheck, Download, CheckCircle2 } from "lucide-react";
+import { Upload, FileSpreadsheet, FileText, AlertTriangle, Loader2, Languages, Database, FileCheck, Download, CheckCircle2, BookOpen, FileDown, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { logAuditEvent } from "@/hooks/useAuditLog";
+import { exportComparisonToPDF } from "@/lib/exportPDF";
+import { useAuth } from "@/hooks/useAuth";
 
 type ComparisonMode = "translation" | "data" | null;
 type PrimaryLanguage = "es" | "en";
@@ -65,21 +67,22 @@ const severityLabel: Record<string, string> = {
 
 const ComparisonTab = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [mode, setMode] = useState<ComparisonMode>(null);
   const [primaryLang, setPrimaryLang] = useState<PrimaryLanguage>("es");
-  // Translation mode states (original 4-slot layout)
   const [transExcelES, setTransExcelES] = useState<File | null>(null);
   const [transExcelEN, setTransExcelEN] = useState<File | null>(null);
   const [transWordES, setTransWordES] = useState<File | null>(null);
   const [transWordEN, setTransWordEN] = useState<File | null>(null);
-  // Data mode states (sequential dropdown)
   const [docType, setDocType] = useState<DocType>(null);
   const [langPair, setLangPair] = useState<LangPair>("es-en");
   const [file1, setFile1] = useState<File | null>(null);
   const [file2, setFile2] = useState<File | null>(null);
   const [isComparing, setIsComparing] = useState(false);
   const [results, setResults] = useState<ComparisonResult | null>(null);
-
+  const [suggestedTerms, setSuggestedTerms] = useState<Array<{ term_es: string; term_en: string; definition: string }>>([]);
+  const [extractingTerms, setExtractingTerms] = useState(false);
+  const [addingTerm, setAddingTerm] = useState<number | null>(null);
   const lp = langPairLabels[langPair];
   const accept = docType === "excel" ? ".xlsx,.xls,.csv" : ".docx,.doc";
   const DocIcon = docType === "excel" ? FileSpreadsheet : FileText;
@@ -176,6 +179,46 @@ const ComparisonTab = () => {
     a.download = `comparison-report-${new Date().toISOString().slice(0, 10)}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExtractTerms = async () => {
+    if (!results) return;
+    setExtractingTerms(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-glossary-terms", {
+        body: {
+          comparisonSummary: results.summary,
+          discrepancies: results.discrepancies,
+        },
+      });
+      if (error) throw error;
+      setSuggestedTerms(data.suggestions || []);
+      if ((data.suggestions || []).length === 0) {
+        toast({ title: "Info", description: "No se encontraron términos nuevos para sugerir." });
+      }
+    } catch {
+      toast({ title: "Error", description: "Error al extraer términos.", variant: "destructive" });
+    }
+    setExtractingTerms(false);
+  };
+
+  const handleAddSuggestedTerm = async (idx: number) => {
+    if (!user) return;
+    const term = suggestedTerms[idx];
+    setAddingTerm(idx);
+    const { error } = await supabase.from("glossary_terms" as any).insert({
+      term_es: term.term_es,
+      term_en: term.term_en,
+      definition: term.definition,
+    } as any);
+    if (error) {
+      toast({ title: "Error", description: "No se pudo agregar. / Could not add.", variant: "destructive" });
+    } else {
+      toast({ title: "✓", description: `"${term.term_es}" agregado al glosario.` });
+      setSuggestedTerms((prev) => prev.filter((_, i) => i !== idx));
+      logAuditEvent("glossary_term_created", { term_es: term.term_es, source: "auto-extract" });
+    }
+    setAddingTerm(null);
   };
 
   return (
@@ -467,13 +510,24 @@ const ComparisonTab = () => {
             </CardHeader>
             <CardContent>
               <p className="text-sm whitespace-pre-wrap">{results.summary}</p>
-              <div className="flex items-center gap-4 mt-4">
+              <div className="flex flex-wrap items-center gap-3 mt-4">
                 <Badge variant="outline" className="text-sm">
                   {results.totalDiscrepancies} discrepancia(s) / discrepancy(ies)
                 </Badge>
                 {results.discrepancies.length > 0 && (
-                  <Button variant="outline" size="sm" onClick={downloadReport}>
-                    <Download className="h-4 w-4 mr-1" /> Descargar Reporte
+                  <>
+                    <Button variant="outline" size="sm" onClick={downloadReport}>
+                      <Download className="h-4 w-4 mr-1" /> TXT
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => exportComparisonToPDF(results)}>
+                      <FileDown className="h-4 w-4 mr-1" /> PDF
+                    </Button>
+                  </>
+                )}
+                {user && results.discrepancies.length > 0 && (
+                  <Button variant="secondary" size="sm" onClick={handleExtractTerms} disabled={extractingTerms}>
+                    {extractingTerms ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <BookOpen className="h-4 w-4 mr-1" />}
+                    Extraer Términos / Extract Terms
                   </Button>
                 )}
               </div>
@@ -573,6 +627,44 @@ const ComparisonTab = () => {
             </div>
           )}
         </div>
+      )}
+
+      {/* Suggested terms from extraction */}
+      {suggestedTerms.length > 0 && (
+        <Card className="border-accent/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-accent" />
+              Términos Sugeridos / Suggested Terms ({suggestedTerms.length})
+            </CardTitle>
+            <CardDescription>
+              Términos extraídos del análisis. Haz clic en "+" para agregar al glosario.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {suggestedTerms.map((term, idx) => (
+                <div key={idx} className="flex items-start gap-3 rounded-lg border bg-card p-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{term.term_es} / {term.term_en}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{term.definition}</p>
+                  </div>
+                  {user && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      disabled={addingTerm === idx}
+                      onClick={() => handleAddSuggestedTerm(idx)}
+                    >
+                      {addingTerm === idx ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
