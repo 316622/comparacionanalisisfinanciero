@@ -52,8 +52,9 @@ serve(async (req) => {
     });
 
     if (error) {
+      console.error("[INTERNAL] Signup error:", error.message);
       return new Response(
-        JSON.stringify({ error: error.message }),
+        JSON.stringify({ error: "No se pudo crear la cuenta. / Could not create account." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
