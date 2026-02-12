@@ -2,11 +2,22 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as XLSX from "npm:xlsx@0.18.5";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+const ALLOWED_ORIGINS = [
+  "https://id-preview--bbac1346-2bfd-4c26-96a8-b78c3bf64d65.lovable.app",
+  "http://localhost:8080",
+  "http://localhost:5173",
+];
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get("origin") || "";
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  };
+}
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // Extract text content from a DOCX file (basic XML parsing)
 async function parseDocx(buffer: ArrayBuffer): Promise<string> {
@@ -61,6 +72,8 @@ function parseExcel(buffer: ArrayBuffer): { sheets: { name: string; data: Record
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -104,6 +117,17 @@ serve(async (req) => {
         JSON.stringify({ error: "Se requieren los 4 archivos / All 4 files are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Validate file sizes
+    const allFiles = [excel1, excel2, word1, word2];
+    for (const file of allFiles) {
+      if (file.size > MAX_FILE_SIZE) {
+        return new Response(
+          JSON.stringify({ error: "Archivo demasiado grande. Máximo 10MB. / File too large. Maximum 10MB." }),
+          { status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Parse files
