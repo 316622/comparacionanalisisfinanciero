@@ -47,6 +47,23 @@ serve(async (req) => {
       );
     }
 
+    // Auto-assign role: first user gets admin, others get viewer
+    if (data?.user) {
+      const { count } = await supabase
+        .from("user_roles")
+        .select("*", { count: "exact", head: true });
+
+      const role = (count === null || count === 0) ? "admin" : "viewer";
+
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .insert({ user_id: data.user.id, role });
+
+      if (roleError) {
+        console.error("Failed to assign role:", roleError);
+      }
+    }
+
     return new Response(
       JSON.stringify({ message: "Cuenta creada. Revisa tu correo para confirmar. / Account created. Check your email to confirm." }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
