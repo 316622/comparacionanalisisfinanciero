@@ -10,8 +10,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Loader2, Database, History } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Pencil, Trash2, Loader2, Database, History, BarChart3, Download } from "lucide-react";
 import { z } from "zod";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 
 const slideSchema = z.object({
   title: z.string().trim().min(1, "El título es requerido").max(300, "Máximo 300 caracteres"),
@@ -26,6 +27,15 @@ const categories = [
 
 const years = ["2024", "2023", "2022", "2021", "2020"];
 
+const CHART_COLORS = [
+  "hsl(214, 100%, 33%)",  // primary
+  "hsl(193, 33%, 62%)",   // secondary
+  "hsl(43, 95%, 54%)",    // accent
+  "hsl(18, 89%, 61%)",    // destructive
+  "hsl(160, 50%, 45%)",
+  "hsl(280, 50%, 55%)",
+];
+
 type ViewMode = "data" | "history";
 
 interface Slide {
@@ -37,6 +47,76 @@ interface Slide {
   content: string | null;
   chart_data: any;
 }
+
+const SlideChart = ({ chartData }: { chartData: any }) => {
+  if (!chartData) return null;
+
+  const { type, data, xKey, yKeys, nameKey, valueKey } = chartData;
+
+  if (!data || !Array.isArray(data) || data.length === 0) return null;
+
+  if (type === "bar") {
+    const keys = yKeys || Object.keys(data[0]).filter((k) => k !== (xKey || "name"));
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 80%)" />
+          <XAxis dataKey={xKey || "name"} tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} />
+          <Tooltip />
+          <Legend />
+          {keys.map((key: string, i: number) => (
+            <Bar key={key} dataKey={key} fill={CHART_COLORS[i % CHART_COLORS.length]} radius={[4, 4, 0, 0]} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  if (type === "line") {
+    const keys = yKeys || Object.keys(data[0]).filter((k) => k !== (xKey || "name"));
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(0, 0%, 80%)" />
+          <XAxis dataKey={xKey || "name"} tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} />
+          <Tooltip />
+          <Legend />
+          {keys.map((key: string, i: number) => (
+            <Line key={key} type="monotone" dataKey={key} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={{ r: 4 }} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  if (type === "pie") {
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey={valueKey || "value"}
+            nameKey={nameKey || "name"}
+            cx="50%"
+            cy="50%"
+            outerRadius={100}
+            label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+          >
+            {data.map((_: any, i: number) => (
+              <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  return <p className="text-xs text-muted-foreground">Tipo de gráfico no soportado: {type}</p>;
+};
 
 const PresentationTab = () => {
   const { user } = useAuth();
@@ -52,6 +132,7 @@ const PresentationTab = () => {
   const [editing, setEditing] = useState<Slide | null>(null);
   const [formTitle, setFormTitle] = useState("");
   const [formContent, setFormContent] = useState("");
+  const [formChartData, setFormChartData] = useState("");
   const [saving, setSaving] = useState(false);
 
   const toggleYear = (y: string) => {
@@ -111,6 +192,7 @@ const PresentationTab = () => {
     setEditing(null);
     setFormTitle("");
     setFormContent("");
+    setFormChartData("");
     setDialogOpen(true);
   };
 
@@ -119,6 +201,7 @@ const PresentationTab = () => {
     setEditing(currentSlide);
     setFormTitle(currentSlide.title);
     setFormContent(currentSlide.content || "");
+    setFormChartData(currentSlide.chart_data ? JSON.stringify(currentSlide.chart_data, null, 2) : "");
     setDialogOpen(true);
   };
 
@@ -135,7 +218,17 @@ const PresentationTab = () => {
       return;
     }
 
-    const validated = parseResult.data;
+    let chartDataParsed = null;
+    if (formChartData.trim()) {
+      try {
+        chartDataParsed = JSON.parse(formChartData);
+      } catch {
+        toast({ title: "Error", description: "JSON de datos de gráfico inválido.", variant: "destructive" });
+        return;
+      }
+    }
+
+    const validated = { ...parseResult.data, chart_data: chartDataParsed };
     setSaving(true);
     if (editing) {
       const { error } = await supabase
@@ -167,18 +260,10 @@ const PresentationTab = () => {
     <div className="space-y-4">
       {/* Mode selector */}
       <div className="flex gap-2">
-        <Button
-          variant={viewMode === "data" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setViewMode("data")}
-        >
+        <Button variant={viewMode === "data" ? "default" : "outline"} size="sm" onClick={() => setViewMode("data")}>
           <Database className="h-4 w-4 mr-1" /> Datos / Data
         </Button>
-        <Button
-          variant={viewMode === "history" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setViewMode("history")}
-        >
+        <Button variant={viewMode === "history" ? "default" : "outline"} size="sm" onClick={() => setViewMode("history")}>
           <History className="h-4 w-4 mr-1" /> Historial / History
         </Button>
       </div>
@@ -212,10 +297,7 @@ const PresentationTab = () => {
             <span className="text-sm text-muted-foreground font-medium">Años:</span>
             {years.map((y) => (
               <label key={y} className="flex items-center gap-1.5 cursor-pointer">
-                <Checkbox
-                  checked={selectedYears.includes(y)}
-                  onCheckedChange={() => toggleYear(y)}
-                />
+                <Checkbox checked={selectedYears.includes(y)} onCheckedChange={() => toggleYear(y)} />
                 <span className="text-sm">{y}</span>
               </label>
             ))}
@@ -244,19 +326,36 @@ const PresentationTab = () => {
       {/* Slide view */}
       <Card className="min-h-[400px] flex flex-col">
         <CardHeader className="border-b bg-muted/30">
-          <CardTitle className="text-lg">
-            {loading
-              ? "Cargando..."
-              : currentSlide
-                ? `${currentSlide.title} — ${currentSlide.year}`
-                : "Sin datos / No data"}
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">
+              {loading
+                ? "Cargando..."
+                : currentSlide
+                  ? `${currentSlide.title} — ${currentSlide.year}`
+                  : "Sin datos / No data"}
+            </CardTitle>
+            {currentSlide?.chart_data && (
+              <BarChart3 className="h-5 w-5 text-primary" />
+            )}
+          </div>
         </CardHeader>
-        <CardContent className="flex-1 flex items-center justify-center p-8">
+        <CardContent className="flex-1 flex flex-col items-center justify-center p-8 gap-6">
           {loading ? (
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           ) : currentSlide ? (
-            <p className="text-muted-foreground text-center max-w-lg whitespace-pre-wrap">{currentSlide.content}</p>
+            <>
+              {currentSlide.content && (
+                <p className="text-muted-foreground text-center max-w-lg whitespace-pre-wrap">{currentSlide.content}</p>
+              )}
+              {currentSlide.chart_data && (
+                <div className="w-full max-w-2xl">
+                  <SlideChart chartData={currentSlide.chart_data} />
+                </div>
+              )}
+              {!currentSlide.content && !currentSlide.chart_data && (
+                <p className="text-muted-foreground text-center">Sin contenido / No content</p>
+              )}
+            </>
           ) : (
             <p className="text-muted-foreground text-center">
               {viewMode === "history" && selectedYears.length === 0
@@ -284,7 +383,7 @@ const PresentationTab = () => {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="border-foreground/30 bg-card text-card-foreground">
+        <DialogContent className="border-foreground/30 bg-card text-card-foreground sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Slide / Edit Slide" : "Nuevo Slide / New Slide"}</DialogTitle>
           </DialogHeader>
@@ -295,7 +394,20 @@ const PresentationTab = () => {
             </div>
             <div className="space-y-2">
               <Label className="text-foreground">Contenido / Content</Label>
-              <Textarea rows={6} value={formContent} onChange={(e) => setFormContent(e.target.value)} className="border-foreground/30 text-foreground" />
+              <Textarea rows={4} value={formContent} onChange={(e) => setFormContent(e.target.value)} className="border-foreground/30 text-foreground" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-foreground">Datos de Gráfico / Chart Data (JSON)</Label>
+              <Textarea
+                rows={4}
+                value={formChartData}
+                onChange={(e) => setFormChartData(e.target.value)}
+                placeholder='{"type":"bar","data":[{"name":"Q1","value":100}]}'
+                className="border-foreground/30 text-foreground font-mono text-xs"
+              />
+              <p className="text-xs text-muted-foreground">
+                Tipos: bar, line, pie. Ejemplo: {`{"type":"bar","data":[{"name":"2023","ingresos":500,"gastos":300}]}`}
+              </p>
             </div>
             <Button type="submit" className="w-full" disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
