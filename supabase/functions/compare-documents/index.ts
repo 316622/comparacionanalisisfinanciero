@@ -179,8 +179,8 @@ All discrepancies should show what the ${targetLang} translation SHOULD be based
 
 IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES (use this 3-level strategy in order):
 1. MATCH BY NAME: Try to match sheets by their name or translated name (e.g. "Balance General" ↔ "Balance Sheet", "Estado de Resultados" ↔ "Income Statement").
-2. MATCH BY CONTENT: If names don't match, analyze the DATA STRUCTURE and VALUES inside each sheet. Look for similar column headers, row labels, numerical patterns, and financial categories to find the best content match. For example, a sheet with rows like "Activos/Pasivos/Patrimonio" clearly matches one with "Assets/Liabilities/Equity" regardless of sheet name.
-3. MATCH BY ORDER: As a last resort, match by position (Sheet #1 vs Sheet #1, etc.).
+2. MATCH BY ORDER: If names don't match, match by position (Sheet #1 vs Sheet #1, Sheet #2 vs Sheet #2, etc.).
+3. MATCH BY CONTENT: If neither name nor order produces a reasonable match, analyze the DATA STRUCTURE and VALUES inside each sheet. Look for similar column headers, row labels, numerical patterns, and financial categories to find the best content match. For example, a sheet with rows like "Activos/Pasivos/Patrimonio" clearly matches one with "Assets/Liabilities/Equity" regardless of sheet name.
 - In your summary, explain HOW each sheet pair was matched (by name, content, or order).
 - If a sheet exists in one file but has NO counterpart in the other (even after content analysis), report it as a "missing_sheet" discrepancy with severity "major".
 - Always include the SHEET NAME in every sourceLocation and targetLocation.
@@ -284,8 +284,9 @@ File 1 is the PRIMARY/base file (source of truth).
 ${docType === "excel" ? `IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES:
 IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES (use this 3-level strategy in order):
 1. MATCH BY NAME: Try to match sheets by their name or translated name (e.g. "Balance General" ↔ "Balance Sheet").
-2. MATCH BY CONTENT: If names don't match, analyze the DATA STRUCTURE and VALUES inside each sheet. Look for similar column headers, row labels, numerical patterns, and financial categories to find the best content match. For example, a sheet with rows like "Activos/Pasivos/Patrimonio" clearly matches one with "Assets/Liabilities/Equity" regardless of sheet name.
-3. MATCH BY ORDER: As a last resort, match by position (Sheet #1 vs Sheet #1, etc.).
+1. MATCH BY NAME: Try to match sheets by their name or translated name (e.g. "Balance General" ↔ "Balance Sheet").
+2. MATCH BY ORDER: If names don't match, match by position (Sheet #1 vs Sheet #1, Sheet #2 vs Sheet #2, etc.).
+3. MATCH BY CONTENT: If neither name nor order produces a reasonable match, analyze the DATA STRUCTURE and VALUES inside each sheet. Look for similar column headers, row labels, numerical patterns, and financial categories to find the best content match.
 - In your summary, explain HOW each sheet pair was matched (by name, content, or order).
 - If a sheet exists in one file but has NO counterpart in the other (even after content analysis), report it as a "missing_data" discrepancy with severity "major".
 - Always include the SHEET NAME in every sourceLocation and targetLocation.
