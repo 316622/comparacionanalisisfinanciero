@@ -237,8 +237,11 @@ ${word2Text.slice(0, 15000)}`;
         });
       }
       const errText = await aiResponse.text();
-      console.error("AI error:", aiResponse.status, errText);
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
+      console.error("[INTERNAL] AI error:", aiResponse.status, errText);
+      return new Response(
+        JSON.stringify({ error: "Error al procesar documentos. / Error processing documents." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const aiData = await aiResponse.json();
@@ -260,9 +263,9 @@ ${word2Text.slice(0, 15000)}`;
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("compare-documents error:", e);
+    console.error("[INTERNAL] compare-documents error:", e);
     return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
+      JSON.stringify({ error: "Error al comparar documentos. / Error comparing documents." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

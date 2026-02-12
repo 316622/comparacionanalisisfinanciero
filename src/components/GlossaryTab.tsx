@@ -9,6 +9,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Search, Plus, Pencil, Trash2, Loader2, BookOpen, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+
+const glossaryTermSchema = z.object({
+  term_es: z.string().trim().min(1, "El término en español es requerido").max(200, "Máximo 200 caracteres"),
+  term_en: z.string().trim().min(1, "El término en inglés es requerido").max(200, "Máximo 200 caracteres"),
+  definition: z.string().trim().max(2000, "Máximo 2000 caracteres").optional().nullable(),
+});
 
 interface GlossaryTerm {
   id: string;
@@ -86,18 +93,31 @@ const GlossaryTab = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const parseResult = glossaryTermSchema.safeParse({
+      term_es: formEs,
+      term_en: formEn,
+      definition: formDef || null,
+    });
+
+    if (!parseResult.success) {
+      toast({ title: "Error de validación", description: parseResult.error.errors[0].message, variant: "destructive" });
+      return;
+    }
+
+    const validated = parseResult.data;
     setSaving(true);
     if (editing) {
       const { error } = await supabase
         .from("glossary_terms" as any)
-        .update({ term_es: formEs, term_en: formEn, definition: formDef } as any)
+        .update(validated as any)
         .eq("id", editing.id);
-      if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+      if (error) toast({ title: "Error", description: "No se pudo guardar. / Could not save.", variant: "destructive" });
     } else {
       const { error } = await supabase
         .from("glossary_terms" as any)
-        .insert({ term_es: formEs, term_en: formEn, definition: formDef } as any);
-      if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+        .insert(validated as any);
+      if (error) toast({ title: "Error", description: "No se pudo guardar. / Could not save.", variant: "destructive" });
     }
     setSaving(false);
     setDialogOpen(false);
