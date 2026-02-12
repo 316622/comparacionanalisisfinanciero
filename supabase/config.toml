@@ -2,3 +2,6 @@ project_id = "clswsfiasnwtpqvtqlwi"
 
 [functions.compare-documents]
 verify_jwt = false
+
+[functions.protected-signup]
+verify_jwt = false

@@ -4,13 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { LogIn, LogOut, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const ACCESS_CODE = "RelacionConElInversionista";
-
 const LoginDialog = () => {
-  const { user, signIn, signUp, signOut, loading } = useAuth();
+  const { user, signIn, signOut, loading } = useAuth();
   const [open, setOpen] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
@@ -34,21 +33,37 @@ const LoginDialog = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (accessCode !== ACCESS_CODE) {
-      toast({ title: "Código incorrecto", description: "El código de acceso no es válido. / Invalid access code.", variant: "destructive" });
-      return;
-    }
     setSubmitting(true);
-    const { error } = isSignUp ? await signUp(email, password) : await signIn(email, password);
-    setSubmitting(false);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else if (isSignUp) {
-      toast({ title: "Cuenta creada", description: "Revisa tu correo para confirmar. / Check your email to confirm." });
-      setOpen(false);
+
+    if (isSignUp) {
+      // Server-side access code validation for sign up
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke("protected-signup", {
+          body: { email, password, accessCode },
+        });
+
+        if (fnError) {
+          toast({ title: "Error", description: fnError.message, variant: "destructive" });
+        } else if (data?.error) {
+          toast({ title: "Error", description: data.error, variant: "destructive" });
+        } else {
+          toast({ title: "Cuenta creada", description: "Revisa tu correo para confirmar. / Check your email to confirm." });
+          setOpen(false);
+        }
+      } catch {
+        toast({ title: "Error", description: "Error de conexión. / Connection error.", variant: "destructive" });
+      }
     } else {
-      setOpen(false);
+      // Sign in doesn't need access code
+      const { error } = await signIn(email, password);
+      if (error) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      } else {
+        setOpen(false);
+      }
     }
+
+    setSubmitting(false);
     setEmail("");
     setPassword("");
     setAccessCode("");
@@ -74,10 +89,12 @@ const LoginDialog = () => {
             <Label htmlFor="password" className="text-foreground">Contraseña / Password</Label>
             <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="border-foreground/30 text-foreground" />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="accessCode" className="text-foreground">Código de Acceso / Access Code</Label>
-            <Input id="accessCode" type="password" required value={accessCode} onChange={(e) => setAccessCode(e.target.value)} placeholder="Ingresa el código de acceso" className="border-foreground/30 text-foreground" />
-          </div>
+          {isSignUp && (
+            <div className="space-y-2">
+              <Label htmlFor="accessCode" className="text-foreground">Código de Acceso / Access Code</Label>
+              <Input id="accessCode" type="password" required value={accessCode} onChange={(e) => setAccessCode(e.target.value)} placeholder="Ingresa el código de acceso" className="border-foreground/30 text-foreground" />
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isSignUp ? "Crear Cuenta / Sign Up" : "Iniciar Sesión / Sign In"}
