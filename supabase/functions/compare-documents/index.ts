@@ -18,55 +18,77 @@ function getCorsHeaders(req: Request) {
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_SHEETS = 20;
+const MAX_CELLS_PER_SHEET = 5000;
+
+// Validate file magic bytes
+function validateFileType(buffer: ArrayBuffer, expectedType: "docx" | "excel"): boolean {
+  const uint8 = new Uint8Array(buffer);
+  if (uint8.length < 4) return false;
+  // Both DOCX and XLSX are ZIP-based (PK\x03\x04)
+  return uint8[0] === 0x50 && uint8[1] === 0x4B && uint8[2] === 0x03 && uint8[3] === 0x04;
+}
 
 // Extract text content from a DOCX file (basic XML parsing)
 async function parseDocx(buffer: ArrayBuffer): Promise<string> {
-  // DOCX is a ZIP containing XML files. We'll use a simple approach.
+  if (!validateFileType(buffer, "docx")) {
+    throw new Error("Invalid DOCX file format");
+  }
+
   const uint8 = new Uint8Array(buffer);
-  
-  // Use JSZip-like approach with Deno's built-in ZIP support
-  // For simplicity, we'll extract raw text from the XML
   const decoder = new TextDecoder();
   const raw = decoder.decode(uint8);
   
-  // Try to find word/document.xml content in the zip
-  // Simple approach: look for text between <w:t> tags
   const textParts: string[] = [];
   const regex = /<w:t[^>]*>(.*?)<\/w:t>/gs;
   let match;
+  let matchCount = 0;
   while ((match = regex.exec(raw)) !== null) {
     textParts.push(match[1]);
+    matchCount++;
+    if (matchCount > 50000) break; // Prevent runaway regex on malformed files
   }
   
   if (textParts.length > 0) {
-    return textParts.join(" ");
+    return textParts.join(" ").slice(0, 50000);
   }
   
-  // Fallback: strip all XML tags
   return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 50000);
 }
 
 // Extract structured data from Excel
-function parseExcel(buffer: ArrayBuffer): { sheets: { name: string; data: Record<string, string>[] ; rawCells: Record<string, string> }[] } {
+function parseExcel(buffer: ArrayBuffer): { sheets: { name: string; data: Record<string, string>[]; rawCells: Record<string, string> }[] } {
+  if (!validateFileType(buffer, "excel")) {
+    throw new Error("Invalid Excel file format");
+  }
+
   const workbook = XLSX.read(buffer, { type: "array" });
-  const sheets = workbook.SheetNames.map((name: string) => {
-    const sheet = workbook.Sheets[name];
-    const data = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as Record<string, string>[];
-    
-    // Also get raw cell references
-    const rawCells: Record<string, string> = {};
-    const range = XLSX.utils.decode_range(sheet["!ref"] || "A1");
-    for (let r = range.s.r; r <= range.e.r; r++) {
-      for (let c = range.s.c; c <= range.e.c; c++) {
-        const addr = XLSX.utils.encode_cell({ r, c });
-        const cell = sheet[addr];
-        if (cell && cell.v !== undefined && cell.v !== "") {
-          rawCells[addr] = String(cell.v);
+  const sheetNames = workbook.SheetNames.slice(0, MAX_SHEETS);
+
+  const sheets = sheetNames.map((name: string) => {
+    try {
+      const sheet = workbook.Sheets[name];
+      const data = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as Record<string, string>[];
+      
+      const rawCells: Record<string, string> = {};
+      const range = XLSX.utils.decode_range(sheet["!ref"] || "A1");
+      let cellCount = 0;
+      for (let r = range.s.r; r <= range.e.r && cellCount < MAX_CELLS_PER_SHEET; r++) {
+        for (let c = range.s.c; c <= range.e.c && cellCount < MAX_CELLS_PER_SHEET; c++) {
+          const addr = XLSX.utils.encode_cell({ r, c });
+          const cell = sheet[addr];
+          if (cell && cell.v !== undefined && cell.v !== "") {
+            rawCells[addr] = String(cell.v).slice(0, 1000);
+            cellCount++;
+          }
         }
       }
+      
+      return { name, data, rawCells };
+    } catch (sheetError) {
+      console.error(`[INTERNAL] Failed to parse sheet "${name}":`, sheetError);
+      return { name, data: [], rawCells: {} };
     }
-    
-    return { name, data, rawCells };
   });
   return { sheets };
 }
