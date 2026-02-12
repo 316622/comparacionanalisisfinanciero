@@ -83,10 +83,13 @@ function parseExcel(buffer: ArrayBuffer): { sheets: { name: string; data: Record
 }
 
 function summarizeExcel(excelData: { sheets: { name: string; rawCells: Record<string, string> }[] }): string {
-  return excelData.sheets.map(s => {
+  const sheetNames = excelData.sheets.map(s => s.name);
+  const header = `[${excelData.sheets.length} sheet(s): ${sheetNames.map((n, i) => `#${i + 1} "${n}"`).join(", ")}]\n\n`;
+  const details = excelData.sheets.map((s, i) => {
     const cellEntries = Object.entries(s.rawCells).slice(0, 200);
-    return `Sheet "${s.name}":\n${cellEntries.map(([cell, val]) => `  ${cell}: ${val}`).join("\n")}`;
+    return `Sheet #${i + 1} "${s.name}" (${Object.keys(s.rawCells).length} cells):\n${cellEntries.map(([cell, val]) => `  ${cell}: ${val}`).join("\n")}`;
   }).join("\n\n");
+  return header + details;
 }
 
 serve(async (req) => {
@@ -174,27 +177,34 @@ The PRIMARY file is: ${primaryFile}. The translation target language is ${target
 Compare the documents for TRANSLATION accuracy. The primary file is the source of truth.
 All discrepancies should show what the ${targetLang} translation SHOULD be based on the primary file.
 
+IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES:
+- Each Excel file may have multiple sheets/tabs with different names.
+- Match sheets between files by CONTENT SIMILARITY and TRANSLATED NAME (e.g. "Balance General" ↔ "Balance Sheet", "Estado de Resultados" ↔ "Income Statement").
+- If names don't clearly match, use sheet ORDER as fallback (Sheet #1 vs Sheet #1, etc.).
+- If a sheet exists in one file but has NO counterpart in the other, report it as a "missing" discrepancy with severity "major".
+- Always include the SHEET NAME in every sourceLocation and targetLocation.
+
 For EVERY discrepancy found, you MUST provide:
-1. The original text in the primary file and its location (file name, sheet name if Excel, cell reference if Excel, or page/section if Word)
+1. The original text in the primary file and its location (file name, sheet name, cell reference if Excel, or page/section if Word)
 2. The translated text found in ${targetFile} and its location
 3. What the correct ${targetLang} translation should be
 4. Severity: "critical" (numbers/amounts wrong), "major" (meaning changed), "minor" (style/preference)
 
 Return your analysis as a JSON object:
 {
-  "summary": "Brief overall assessment in Spanish and English",
+  "summary": "Brief overall assessment in Spanish and English. Include how many sheets were found in each file and how they were matched.",
   "totalDiscrepancies": number,
   "baseFile": "${primaryFile}",
   "discrepancies": [
     {
       "id": number,
-      "type": "mistranslation" | "missing" | "inconsistent" | "number_mismatch",
+      "type": "mistranslation" | "missing" | "inconsistent" | "number_mismatch" | "missing_sheet",
       "severity": "critical" | "major" | "minor",
       "sourceFile": "${primaryFile}",
-      "sourceLocation": "Sheet X, Cell Y" or "Section/paragraph description",
+      "sourceLocation": "Sheet 'SheetName', Cell Y" or "Section/paragraph description",
       "sourceText": "original text in primary language",
       "targetFile": "${targetFile}",
-      "targetLocation": "Sheet X, Cell Y" or "Section/paragraph description",
+      "targetLocation": "Sheet 'SheetName', Cell Y" or "Section/paragraph description",
       "targetText": "translated text found",
       "correctTranslation": "what the correct ${targetLang} translation should be",
       "explanation": "Brief explanation in Spanish and English"
@@ -270,15 +280,22 @@ File 1 is in ${labels.l1 === "ES" ? "Spanish" : "English"}, File 2 is in ${label
 ${needsTranslation ? "Translate labels/headers when comparing across languages." : "Both files are in the same language."}
 File 1 is the PRIMARY/base file (source of truth).
 
+${docType === "excel" ? `IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES:
+- Each Excel file may have multiple sheets/tabs with different names.
+- Match sheets between files by CONTENT SIMILARITY and NAME (translate names if comparing across languages, e.g. "Balance General" ↔ "Balance Sheet").
+- If names don't clearly match, use sheet ORDER as fallback (Sheet #1 vs Sheet #1, etc.).
+- If a sheet exists in one file but has NO counterpart in the other, report it as a "missing_data" discrepancy with severity "major".
+- Always include the SHEET NAME in every sourceLocation and targetLocation.
+` : ""}
 For EVERY data discrepancy found, provide:
-1. The data value in File 1 and its exact location
+1. The data value in File 1 and its exact location (include sheet name for Excel)
 2. The corresponding data in File 2 and its exact location
 3. What the expected value should be
 4. Severity: "critical" (financial amounts differ), "major" (key data differs), "minor" (formatting/rounding)
 
 Return your analysis as a JSON object:
 {
-  "summary": "Brief overall assessment in Spanish and English",
+  "summary": "Brief overall assessment in Spanish and English.${docType === "excel" ? " Include how many sheets were found in each file and how they were matched." : ""}",
   "baseFile": "${primaryFileLabel}",
   "totalDiscrepancies": number,
   "discrepancies": [
@@ -287,10 +304,10 @@ Return your analysis as a JSON object:
       "type": "value_mismatch" | "missing_data" | "extra_data" | "format_difference",
       "severity": "critical" | "major" | "minor",
       "sourceFile": "${primaryFileLabel}",
-      "sourceLocation": "Sheet X, Cell Y" or "Section/paragraph",
+      "sourceLocation": "Sheet 'SheetName', Cell Y" or "Section/paragraph",
       "sourceValue": "value in primary file",
       "targetFile": "${targetFileLabel}",
-      "targetLocation": "Sheet X, Cell Y" or "Section/paragraph",
+      "targetLocation": "Sheet 'SheetName', Cell Y" or "Section/paragraph",
       "targetValue": "value in comparison file",
       "expectedValue": "what the correct value should be",
       "explanation": "Brief explanation in Spanish and English"
