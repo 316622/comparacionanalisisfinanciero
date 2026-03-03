@@ -40,8 +40,88 @@ interface SheetData {
   rawFormulas: Record<string, string>;
 }
 
-function parseExcel(buffer: ArrayBuffer): { sheets: SheetData[] } {
+function extractExternalLinks(buffer: ArrayBuffer): Record<number, string> {
+  const linkMap: Record<number, string> = {};
+  try {
+    // Use XLSX's internal ZIP reading to access raw XML files
+    const cfb = XLSX.read(buffer, { type: "array", bookFiles: true, bookVBA: true });
+    
+    // Method 1: Check if SheetJS exposes external references via Workbook property
+    const wb = cfb as any;
+    if (wb.Workbook?.WBProps?.ExternalReferences) {
+      const refs = wb.Workbook.WBProps.ExternalReferences;
+      for (let idx = 0; idx < refs.length; idx++) {
+        if (refs[idx]) linkMap[idx + 1] = refs[idx];
+      }
+      if (Object.keys(linkMap).length > 0) return linkMap;
+    }
+    
+    // Method 2: Parse raw ZIP files to find external link targets
+    // SheetJS stores raw files in cfb.files for ZIP-based xlsx
+    const rawFiles = wb.files || wb.cfb?.FileIndex || {};
+    
+    for (let i = 1; i <= 20; i++) {
+      // Try .rels file first (contains the actual file path Target)
+      const relsPath = `xl/externalLinks/_rels/externalLink${i}.xml.rels`;
+      // Also try the externalLink XML itself which may contain the path
+      const linkXmlPath = `xl/externalLinks/externalLink${i}.xml`;
+      
+      for (const path of [relsPath, linkXmlPath]) {
+        let content = "";
+        try {
+          const entry = rawFiles[path];
+          if (entry) {
+            if (typeof entry === "string") {
+              content = entry;
+            } else if (entry instanceof Uint8Array || entry instanceof ArrayBuffer) {
+              content = new TextDecoder().decode(entry);
+            } else if (entry.content) {
+              content = new TextDecoder().decode(entry.content);
+            }
+          }
+        } catch (_e) { /* skip */ }
+        
+        if (content) {
+          // Look for Target attribute with file path
+          const targetMatch = content.match(/Target="([^"]+)"/);
+          if (targetMatch && targetMatch[1].includes(".xls")) {
+            linkMap[i] = targetMatch[1];
+            break;
+          }
+          // Also look for <externalBook> element with path info
+          const bookMatch = content.match(/file:\/\/\/([^"<]+)/);
+          if (bookMatch) {
+            linkMap[i] = bookMatch[1].replace(/\//g, "\\");
+            break;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Failed to extract external links:", e);
+  }
+  return linkMap;
+}
+
+function resolveFormulaLinks(formula: string, linkMap: Record<number, string>): string {
+  // Replace [1], [2], etc. with the full file path
+  return formula.replace(/\[(\d+)\]/g, (match, num) => {
+    const idx = parseInt(num);
+    const fullPath = linkMap[idx];
+    if (fullPath) {
+      // fullPath might be something like "../prueba2.xlsx" or a full path
+      return `[${fullPath}]`;
+    }
+    return match;
+  });
+}
+
+function parseExcel(buffer: ArrayBuffer): { sheets: SheetData[]; externalLinks: Record<number, string> } {
   if (!validateFileType(buffer)) throw new Error("Invalid Excel file format");
+  
+  // Extract external link paths from ZIP internals
+  const externalLinks = extractExternalLinks(buffer);
+  
   const workbook = XLSX.read(buffer, { type: "array", cellFormula: true });
   const sheetNames = workbook.SheetNames.slice(0, MAX_SHEETS);
   const sheets = sheetNames.map((name: string) => {
@@ -60,7 +140,8 @@ function parseExcel(buffer: ArrayBuffer): { sheets: SheetData[] } {
             rawCells[addr] = String(cell.v);
             cellCount++;
             if (cell.f) {
-              rawFormulas[addr] = cell.f;
+              // Resolve abbreviated external references to full paths
+              rawFormulas[addr] = resolveFormulaLinks(cell.f, externalLinks);
             }
           }
         }
@@ -71,7 +152,7 @@ function parseExcel(buffer: ArrayBuffer): { sheets: SheetData[] } {
       return { name, data: [], rawCells: {}, rawFormulas: {} };
     }
   });
-  return { sheets };
+  return { sheets, externalLinks };
 }
 
 function summarizeExcel(excelData: { sheets: SheetData[] }): string {
@@ -166,9 +247,9 @@ function determineSeverity(val1: string, val2: string): "critical" | "major" | "
 
 function getCellOrigin(formula: string | undefined): string {
   if (!formula) return "Valor manual";
-  // Check if it references external file
+  // Check if it references external file with full path
   if (formula.includes("[") && formula.includes("]")) {
-    return `Link externo: =${formula}`;
+    return `Vínculo externo: =${formula}`;
   }
   // Check if it references another sheet
   if (formula.includes("!")) {
@@ -176,6 +257,8 @@ function getCellOrigin(formula: string | undefined): string {
   }
   return `Fórmula: =${formula}`;
 }
+
+
 
 function getRowLabel(sheet: SheetData, row: number): string {
   // Try column A first, then B
