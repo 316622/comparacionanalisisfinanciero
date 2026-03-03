@@ -578,12 +578,12 @@ const ComparisonTab = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                           <div className="bg-muted/50 rounded p-2">
                             <p className="font-semibold">{d.sourceFile}</p>
-                            <p className="font-mono text-muted-foreground">{d.sourceLocation}</p>
+                            <p className="font-mono font-bold text-foreground">{d.sourceLocation}</p>
                             <p className="mt-1 break-words">{d.sourceText || d.sourceValue}</p>
                           </div>
                           <div className="bg-muted/50 rounded p-2">
                             <p className="font-semibold">{d.targetFile}</p>
-                            <p className="font-mono text-muted-foreground">{d.targetLocation}</p>
+                            <p className="font-mono font-bold text-foreground">{d.targetLocation}</p>
                             <p className="mt-1 break-words">{d.targetText || d.targetValue}</p>
                           </div>
                         </div>
