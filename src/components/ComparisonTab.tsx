@@ -561,54 +561,7 @@ const ComparisonTab = () => {
             </CardContent>
           </Card>
 
-          {/* Discrepancies table */}
-          {results.discrepancies.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Detalle de Discrepancias
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Archivo Origen</TableHead>
-                      <TableHead>Ubicación</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Archivo Destino</TableHead>
-                      <TableHead>Ubicación</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Corrección</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {results.discrepancies.map((d) => (
-                      <TableRow key={d.id}>
-                        <TableCell className="font-mono text-xs">{d.id}</TableCell>
-                        <TableCell className="text-xs">{d.type}</TableCell>
-                        <TableCell className="text-xs font-medium">{d.sourceFile}</TableCell>
-                        <TableCell className="text-xs font-mono">{d.sourceLocation}</TableCell>
-                        <TableCell className="text-xs max-w-[150px] truncate" title={d.sourceText || d.sourceValue}>
-                          {d.sourceText || d.sourceValue || "—"}
-                        </TableCell>
-                        <TableCell className="text-xs font-medium">{d.targetFile}</TableCell>
-                        <TableCell className="text-xs font-mono">{d.targetLocation}</TableCell>
-                        <TableCell className="text-xs max-w-[150px] truncate" title={d.targetText || d.targetValue}>
-                          {d.targetText || d.targetValue || "—"}
-                        </TableCell>
-                        <TableCell className="text-xs max-w-[150px] truncate text-primary" title={d.correctTranslation || d.expectedValue}>
-                          {d.correctTranslation || d.expectedValue || "—"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
+
 
           {/* Detailed cards for each discrepancy */}
           {results.discrepancies.length > 0 && (
