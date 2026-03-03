@@ -513,46 +513,64 @@ const ComparisonTab = () => {
       {/* Results */}
       {results && (
         <div className="space-y-4">
-          {/* Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-               {results.totalDiscrepancies === 0 ? (
-                  <CheckCircle2 className="h-5 w-5 text-success" />
-                ) : (
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
+          {/* Summary - hidden in data mode */}
+          {mode === "translation" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                 {results.totalDiscrepancies === 0 ? (
+                    <CheckCircle2 className="h-5 w-5 text-success" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                  )}
+                  Resumen
+                </CardTitle>
+                {results.baseFile && (
+                  <CardDescription>Archivo base: {results.baseFile}</CardDescription>
                 )}
-                Resumen
-              </CardTitle>
-              {results.baseFile && (
-                <CardDescription>Archivo base: {results.baseFile}</CardDescription>
-              )}
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm whitespace-pre-wrap">{results.summary}</p>
-              <div className="flex flex-wrap items-center gap-3 mt-4">
-                <Badge variant="outline" className="text-sm">
-                  {results.totalDiscrepancies} discrepancia(s)
-                </Badge>
-                {results.discrepancies.length > 0 && (
-                  <>
-                    <Button variant="outline" size="sm" onClick={downloadReport}>
-                      <Download className="h-4 w-4 mr-1" /> TXT
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm whitespace-pre-wrap">{results.summary}</p>
+                <div className="flex flex-wrap items-center gap-3 mt-4">
+                  <Badge variant="outline" className="text-sm">
+                    {results.totalDiscrepancies} discrepancia(s)
+                  </Badge>
+                  {results.discrepancies.length > 0 && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={downloadReport}>
+                        <Download className="h-4 w-4 mr-1" /> TXT
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => exportComparisonToPDF(results)}>
+                        <FileDown className="h-4 w-4 mr-1" /> PDF
+                      </Button>
+                    </>
+                  )}
+                  {user && results.discrepancies.length > 0 && (
+                    <Button variant="secondary" size="sm" onClick={handleExtractTerms} disabled={extractingTerms}>
+                      {extractingTerms ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <BookOpen className="h-4 w-4 mr-1" />}
+                      Extraer Términos
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => exportComparisonToPDF(results)}>
-                      <FileDown className="h-4 w-4 mr-1" /> PDF
-                    </Button>
-                  </>
-                )}
-                {user && results.discrepancies.length > 0 && (
-                  <Button variant="secondary" size="sm" onClick={handleExtractTerms} disabled={extractingTerms}>
-                    {extractingTerms ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <BookOpen className="h-4 w-4 mr-1" />}
-                    Extraer Términos
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge variant="outline" className="text-sm">
+                {results.totalDiscrepancies} discrepancia(s)
+              </Badge>
+              {results.discrepancies.length > 0 && (
+                <>
+                  <Button variant="outline" size="sm" onClick={downloadReport}>
+                    <Download className="h-4 w-4 mr-1" /> TXT
                   </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  <Button variant="outline" size="sm" onClick={() => exportComparisonToPDF(results)}>
+                    <FileDown className="h-4 w-4 mr-1" /> PDF
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
 
 
 
