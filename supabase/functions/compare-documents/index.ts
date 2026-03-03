@@ -277,12 +277,12 @@ File 1 is the PRIMARY/base file (source of truth).
 IMPORTANT: ALL output text (summary, explanations, descriptions) MUST be in SPANISH ONLY.
 
 CRITICAL RULES FOR ACCURACY:
-1. ONLY report a discrepancy if you can verify BOTH the source cell AND the target cell contain actual data that differs. 
-2. DO NOT report a cell as having a discrepancy if it is empty in BOTH files.
-3. DO NOT fabricate or hallucinate cell references. If a cell address is not explicitly present in the data provided, do NOT reference it.
-4. Report EVERY difference you find — including empty/blank cells in one file where the other has data, different values, different text, different numbers, extra rows, missing rows.
-5. For each row in the data, check ALL columns — not just the first few. If a row has blank cells in one file but data in the other, report each one.
-6. Be EXHAUSTIVE: scan every single cell provided in the data. Do not skip any.
+1. You will receive raw cell data in the format "CellAddress: Value" (e.g. "A1: Revenue", "B5: 1000"). ONLY use cell addresses that appear explicitly in the provided data. NEVER invent, guess, or extrapolate cell addresses beyond what is given.
+2. Before reporting ANY discrepancy, confirm that the cell address you are referencing EXISTS in the data dump for that file. If the cell address does not appear in the data, DO NOT mention it.
+3. DO NOT report a cell as having a discrepancy if it is empty in BOTH files.
+4. Report EVERY genuine difference — including cells that have data in one file but are absent in the other.
+5. For each row, check ALL columns present in the data. If a cell exists in one file but not the other, report it.
+6. Be EXHAUSTIVE with the data you ARE given, but NEVER go beyond it.
 
 ${docType === "excel" ? `SHEET/TAB MATCHING FOR EXCEL FILES:
 1. MATCH BY NAME: Try to match sheets by their name or translated name.
