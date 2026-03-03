@@ -499,8 +499,8 @@ const ComparisonTab = () => {
           {docType && (
             <div className="flex justify-center">
               <Button size="lg" disabled={!canCompare || isComparing} onClick={handleCompare}>
-                {isComparing ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analizando con IA... / Analyzing with AI...</>
+              {isComparing ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Comparando... / Comparing...</>
                 ) : (
                   "Comparar Datos / Compare Data"
                 )}
