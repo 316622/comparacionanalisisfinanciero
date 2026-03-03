@@ -425,16 +425,13 @@ const ComparisonTab = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="excel">
-                      <span className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Excel vs Excel</span>
-                    </SelectItem>
-                    <SelectItem value="word">
-                      <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Word vs Word</span>
-                    </SelectItem>
-                    <SelectItem value="excel-word">
-                      <span className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Excel vs Word</span>
+                      <span className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Excel</span>
                     </SelectItem>
                     <SelectItem value="word">
                       <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Word</span>
+                    </SelectItem>
+                    <SelectItem value="excel-word">
+                      <span className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Word vs Excel</span>
                     </SelectItem>
                   </SelectContent>
                 </Select>
