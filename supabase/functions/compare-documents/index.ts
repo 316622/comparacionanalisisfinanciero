@@ -167,7 +167,7 @@ The PRIMARY file is: ${primaryFile}. The translation target language is ${target
 Compare the documents for TRANSLATION accuracy. The primary file is the source of truth.
 All discrepancies should show what the ${targetLang} translation SHOULD be based on the primary file.
 
-IMPORTANT: ALL output text (summary, explanations, descriptions) MUST be in ENGLISH ONLY. Do not include Spanish in the output.
+IMPORTANT: ALL output text (summary, explanations, descriptions) MUST be in SPANISH ONLY.
 
 IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES (use this 3-level strategy in order):
 1. MATCH BY NAME: Try to match sheets by their name or translated name (e.g. "Balance General" ↔ "Balance Sheet").
@@ -185,7 +185,7 @@ For EVERY discrepancy found, provide:
 
 Return your analysis as a JSON object:
 {
-  "summary": "Brief overall assessment in English only.",
+  "summary": "Evaluación general breve en español.",
   "totalDiscrepancies": number,
   "baseFile": "${primaryFile}",
   "discrepancies": [
@@ -200,7 +200,7 @@ Return your analysis as a JSON object:
       "targetLocation": "Sheet 'SheetName', Cell Y" or "Section/paragraph description",
       "targetText": "translated text found",
       "correctTranslation": "what the correct ${targetLang} translation should be",
-      "explanation": "Brief explanation in English only"
+      "explanation": "Explicación breve en español"
     }
   ]
 }`;
@@ -273,7 +273,7 @@ File 1 is in ${labels.l1 === "ES" ? "Spanish" : "English"}, File 2 is in ${label
 ${needsTranslation ? "Translate labels/headers when comparing across languages." : "Both files are in the same language."}
 File 1 is the PRIMARY/base file (source of truth).
 
-IMPORTANT: ALL output text (summary, explanations, descriptions) MUST be in ENGLISH ONLY. Do not include Spanish in the output.
+IMPORTANT: ALL output text (summary, explanations, descriptions) MUST be in SPANISH ONLY.
 
 ${docType === "excel" ? `IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES:
 1. MATCH BY NAME: Try to match sheets by their name or translated name.
@@ -291,7 +291,7 @@ For EVERY data discrepancy found, provide:
 
 Return your analysis as a JSON object:
 {
-  "summary": "Brief overall assessment in English only.${docType === "excel" ? " Include how many sheets were found in each file and how they were matched." : ""}",
+  "summary": "Evaluación general breve en español.${docType === "excel" ? " Incluir cuántas hojas se encontraron en cada archivo y cómo se emparejaron." : ""}",
   "baseFile": "${primaryFileLabel}",
   "totalDiscrepancies": number,
   "discrepancies": [
@@ -306,7 +306,7 @@ Return your analysis as a JSON object:
       "targetLocation": "Sheet 'SheetName', Cell Y" or "Section/paragraph",
       "targetValue": "value in comparison file",
       "expectedValue": "what the correct value should be",
-      "explanation": "Brief explanation in English only"
+      "explanation": "Explicación breve en español"
     }
   ]
 }`;

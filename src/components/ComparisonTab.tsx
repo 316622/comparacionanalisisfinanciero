@@ -60,9 +60,9 @@ const severityColor: Record<string, string> = {
 };
 
 const severityLabel: Record<string, string> = {
-  critical: "Critical",
-  major: "Major",
-  minor: "Minor",
+  critical: "Crítico",
+  major: "Mayor",
+  minor: "Menor",
 };
 
 const ComparisonTab = () => {
@@ -154,21 +154,21 @@ const ComparisonTab = () => {
   const downloadReport = () => {
     if (!results) return;
     const lines: string[] = [];
-    lines.push("=== COMPARISON REPORT ===\n");
+    lines.push("=== REPORTE DE COMPARACIÓN ===\n");
     lines.push(results.summary + "\n");
-    lines.push(`Total discrepancies: ${results.totalDiscrepancies}\n`);
-    if (results.baseFile) lines.push(`Base file: ${results.baseFile}\n`);
-    lines.push("\n--- DISCREPANCIES ---\n");
+    lines.push(`Total de discrepancias: ${results.totalDiscrepancies}\n`);
+    if (results.baseFile) lines.push(`Archivo base: ${results.baseFile}\n`);
+    lines.push("\n--- DISCREPANCIAS ---\n");
 
     results.discrepancies.forEach((d) => {
       lines.push(`#${d.id} [${d.severity.toUpperCase()}] ${d.type}`);
-      lines.push(`  Source: ${d.sourceFile} → ${d.sourceLocation}`);
-      lines.push(`  Value: ${d.sourceText || d.sourceValue || "N/A"}`);
-      lines.push(`  Target: ${d.targetFile} → ${d.targetLocation}`);
-      lines.push(`  Value: ${d.targetText || d.targetValue || "N/A"}`);
-      if (d.correctTranslation) lines.push(`  Correct translation: ${d.correctTranslation}`);
-      if (d.expectedValue) lines.push(`  Expected value: ${d.expectedValue}`);
-      lines.push(`  Explanation: ${d.explanation}`);
+      lines.push(`  Origen: ${d.sourceFile} → ${d.sourceLocation}`);
+      lines.push(`  Valor: ${d.sourceText || d.sourceValue || "N/A"}`);
+      lines.push(`  Destino: ${d.targetFile} → ${d.targetLocation}`);
+      lines.push(`  Valor: ${d.targetText || d.targetValue || "N/A"}`);
+      if (d.correctTranslation) lines.push(`  Traducción correcta: ${d.correctTranslation}`);
+      if (d.expectedValue) lines.push(`  Valor esperado: ${d.expectedValue}`);
+      lines.push(`  Explicación: ${d.explanation}`);
       lines.push("");
     });
 
@@ -502,17 +502,17 @@ const ComparisonTab = () => {
                 ) : (
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                 )}
-                Summary
+                Resumen
               </CardTitle>
               {results.baseFile && (
-                <CardDescription>Base file: {results.baseFile}</CardDescription>
+                <CardDescription>Archivo base: {results.baseFile}</CardDescription>
               )}
             </CardHeader>
             <CardContent>
               <p className="text-sm whitespace-pre-wrap">{results.summary}</p>
               <div className="flex flex-wrap items-center gap-3 mt-4">
                 <Badge variant="outline" className="text-sm">
-                  {results.totalDiscrepancies} discrepancy(ies)
+                  {results.totalDiscrepancies} discrepancia(s)
                 </Badge>
                 {results.discrepancies.length > 0 && (
                   <>
@@ -527,7 +527,7 @@ const ComparisonTab = () => {
                 {user && results.discrepancies.length > 0 && (
                   <Button variant="secondary" size="sm" onClick={handleExtractTerms} disabled={extractingTerms}>
                     {extractingTerms ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <BookOpen className="h-4 w-4 mr-1" />}
-                    Extract Terms
+                    Extraer Términos
                   </Button>
                 )}
               </div>
@@ -539,7 +539,7 @@ const ComparisonTab = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">
-                  Detalle de Discrepancias / Discrepancy Details
+                  Detalle de Discrepancias
                 </CardTitle>
               </CardHeader>
               <CardContent className="overflow-x-auto">
@@ -549,13 +549,13 @@ const ComparisonTab = () => {
                       <TableHead className="w-12">#</TableHead>
                       <TableHead>Severidad</TableHead>
                       <TableHead>Tipo</TableHead>
-                      <TableHead>Archivo Origen / Source</TableHead>
-                      <TableHead>Ubicación / Location</TableHead>
-                      <TableHead>Valor / Value</TableHead>
-                      <TableHead>Archivo Destino / Target</TableHead>
-                      <TableHead>Ubicación / Location</TableHead>
-                      <TableHead>Valor / Value</TableHead>
-                      <TableHead>Corrección / Correction</TableHead>
+                      <TableHead>Archivo Origen</TableHead>
+                      <TableHead>Ubicación</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Archivo Destino</TableHead>
+                      <TableHead>Ubicación</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Corrección</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -592,7 +592,7 @@ const ComparisonTab = () => {
           {/* Detailed cards for each discrepancy */}
           {results.discrepancies.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold">Explicaciones Detalladas / Detailed Explanations</h3>
+              <h3 className="text-sm font-semibold">Explicaciones Detalladas</h3>
               {results.discrepancies.map((d) => (
                 <Card key={d.id} className={d.severity === "critical" ? "border-destructive/50" : ""}>
                   <CardContent className="pt-4">
@@ -635,7 +635,7 @@ const ComparisonTab = () => {
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-accent" />
-              Términos Sugeridos / Suggested Terms ({suggestedTerms.length})
+              Términos Sugeridos ({suggestedTerms.length})
             </CardTitle>
             <CardDescription>
               Términos extraídos del análisis. Haz clic en "+" para agregar al glosario.
