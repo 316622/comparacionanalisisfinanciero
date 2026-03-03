@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useGlossaryCategories, type CategoryTree } from "@/hooks/useGlossaryCategories";
 import { logAuditEvent } from "@/hooks/useAuditLog";
-import { Search, Plus, Pencil, Trash2, Loader2, BookOpen, X, FolderTree, Brain, Download } from "lucide-react";
+import { Search, Plus, Pencil, Trash2, Loader2, BookOpen, X, FolderTree, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { exportGlossaryToPDF } from "@/lib/exportPDF";
@@ -84,10 +84,6 @@ const GlossaryTab = () => {
   const [formDef, setFormDef] = useState("");
   const [formCategoryId, setFormCategoryId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [semanticQuery, setSemanticQuery] = useState("");
-  const [semanticResults, setSemanticResults] = useState<GlossaryTerm[] | null>(null);
-  const [semanticExplanation, setSemanticExplanation] = useState("");
-  const [searchingAI, setSearchingAI] = useState(false);
 
   const fetchTerms = async () => {
     const { data, error } = await supabase
@@ -216,22 +212,6 @@ const GlossaryTab = () => {
     fetchTerms();
   };
 
-  const handleSemanticSearch = async () => {
-    if (!semanticQuery.trim() || semanticQuery.length < 2) return;
-    setSearchingAI(true);
-    setSemanticResults(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("semantic-search", {
-        body: { query: semanticQuery },
-      });
-      if (error) throw error;
-      setSemanticResults(data.results || []);
-      setSemanticExplanation(data.explanation || "");
-    } catch {
-      toast({ title: "Error", description: "Error en la búsqueda semántica.", variant: "destructive" });
-    }
-    setSearchingAI(false);
-  };
 
   return (
     <div className="space-y-5">
@@ -276,61 +256,6 @@ const GlossaryTab = () => {
         </Button>
       </div>
 
-      {/* Semantic AI Search */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Brain className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-accent" />
-          <Input
-            placeholder="Búsqueda por concepto con IA / AI concept search..."
-            value={semanticQuery}
-            onChange={(e) => setSemanticQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSemanticSearch()}
-            className="pl-10"
-          />
-        </div>
-        <Button size="sm" variant="secondary" onClick={handleSemanticSearch} disabled={searchingAI || semanticQuery.trim().length < 2}>
-          {searchingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-          <span className="hidden sm:inline ml-1">IA Search</span>
-        </Button>
-        {semanticResults && (
-          <Button size="sm" variant="ghost" onClick={() => { setSemanticResults(null); setSemanticQuery(""); }}>
-            <X className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
-      {/* Semantic results */}
-      {semanticResults && (
-        <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Brain className="h-4 w-4 text-accent" />
-            <span className="text-sm font-semibold text-foreground">
-              Resultados IA / AI Results ({semanticResults.length})
-            </span>
-          </div>
-          {semanticExplanation && (
-            <p className="text-xs text-muted-foreground">{semanticExplanation}</p>
-          )}
-          {semanticResults.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No se encontraron coincidencias. / No matches found.</p>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {semanticResults.map((term) => (
-                <div key={term.id} className="rounded-lg border bg-card p-3 shadow-sm">
-                  <div className="flex items-start gap-2">
-                    <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5 border-primary/30 text-primary">ES</Badge>
-                    <span className="font-semibold text-foreground text-sm">{term.term_es}</span>
-                  </div>
-                  <div className="flex items-start gap-2 mt-1">
-                    <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5 border-secondary/50 text-secondary">EN</Badge>
-                    <span className="font-medium text-foreground/80 text-sm">{term.term_en}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Alphabet filter */}
       <div className="flex flex-wrap gap-1">
