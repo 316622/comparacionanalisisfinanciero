@@ -60,9 +60,9 @@ const severityColor: Record<string, string> = {
 };
 
 const severityLabel: Record<string, string> = {
-  critical: "Crítico",
-  major: "Mayor",
-  minor: "Menor",
+  critical: "Critical",
+  major: "Major",
+  minor: "Minor",
 };
 
 const ComparisonTab = () => {
@@ -154,21 +154,21 @@ const ComparisonTab = () => {
   const downloadReport = () => {
     if (!results) return;
     const lines: string[] = [];
-    lines.push("=== REPORTE DE COMPARACIÓN / COMPARISON REPORT ===\n");
+    lines.push("=== COMPARISON REPORT ===\n");
     lines.push(results.summary + "\n");
-    lines.push(`Total de discrepancias / Total discrepancies: ${results.totalDiscrepancies}\n`);
-    if (results.baseFile) lines.push(`Archivo base / Base file: ${results.baseFile}\n`);
-    lines.push("\n--- DISCREPANCIAS / DISCREPANCIES ---\n");
+    lines.push(`Total discrepancies: ${results.totalDiscrepancies}\n`);
+    if (results.baseFile) lines.push(`Base file: ${results.baseFile}\n`);
+    lines.push("\n--- DISCREPANCIES ---\n");
 
     results.discrepancies.forEach((d) => {
       lines.push(`#${d.id} [${d.severity.toUpperCase()}] ${d.type}`);
-      lines.push(`  Origen / Source: ${d.sourceFile} → ${d.sourceLocation}`);
-      lines.push(`  Valor / Value: ${d.sourceText || d.sourceValue || "N/A"}`);
-      lines.push(`  Destino / Target: ${d.targetFile} → ${d.targetLocation}`);
-      lines.push(`  Valor / Value: ${d.targetText || d.targetValue || "N/A"}`);
-      if (d.correctTranslation) lines.push(`  Traducción correcta / Correct: ${d.correctTranslation}`);
-      if (d.expectedValue) lines.push(`  Valor esperado / Expected: ${d.expectedValue}`);
-      lines.push(`  Explicación / Explanation: ${d.explanation}`);
+      lines.push(`  Source: ${d.sourceFile} → ${d.sourceLocation}`);
+      lines.push(`  Value: ${d.sourceText || d.sourceValue || "N/A"}`);
+      lines.push(`  Target: ${d.targetFile} → ${d.targetLocation}`);
+      lines.push(`  Value: ${d.targetText || d.targetValue || "N/A"}`);
+      if (d.correctTranslation) lines.push(`  Correct translation: ${d.correctTranslation}`);
+      if (d.expectedValue) lines.push(`  Expected value: ${d.expectedValue}`);
+      lines.push(`  Explanation: ${d.explanation}`);
       lines.push("");
     });
 
@@ -502,17 +502,17 @@ const ComparisonTab = () => {
                 ) : (
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                 )}
-                Resumen / Summary
+                Summary
               </CardTitle>
               {results.baseFile && (
-                <CardDescription>Archivo base / Base file: {results.baseFile}</CardDescription>
+                <CardDescription>Base file: {results.baseFile}</CardDescription>
               )}
             </CardHeader>
             <CardContent>
               <p className="text-sm whitespace-pre-wrap">{results.summary}</p>
               <div className="flex flex-wrap items-center gap-3 mt-4">
                 <Badge variant="outline" className="text-sm">
-                  {results.totalDiscrepancies} discrepancia(s) / discrepancy(ies)
+                  {results.totalDiscrepancies} discrepancy(ies)
                 </Badge>
                 {results.discrepancies.length > 0 && (
                   <>
@@ -527,7 +527,7 @@ const ComparisonTab = () => {
                 {user && results.discrepancies.length > 0 && (
                   <Button variant="secondary" size="sm" onClick={handleExtractTerms} disabled={extractingTerms}>
                     {extractingTerms ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <BookOpen className="h-4 w-4 mr-1" />}
-                    Extraer Términos / Extract Terms
+                    Extract Terms
                   </Button>
                 )}
               </div>
