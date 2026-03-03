@@ -7,7 +7,7 @@ import LoginDialog from "@/components/LoginDialog";
 import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   return (
     <div className="min-h-screen bg-background">
@@ -38,7 +38,7 @@ const Index = () => {
               <span className="hidden sm:inline">Comparación / Comparison</span>
               <span className="sm:hidden">Comparar</span>
             </TabsTrigger>
-            {user && (
+            {isAdmin && (
               <TabsTrigger value="dashboard" className="gap-2">
                 <BarChart3 className="h-4 w-4" />
                 <span className="hidden sm:inline">Dashboard</span>
@@ -53,7 +53,7 @@ const Index = () => {
           <TabsContent value="comparison">
             <ComparisonTab />
           </TabsContent>
-          {user && (
+          {isAdmin && (
             <TabsContent value="dashboard">
               <DashboardTab />
             </TabsContent>
