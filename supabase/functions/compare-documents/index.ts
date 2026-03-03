@@ -10,7 +10,7 @@ const corsHeaders = {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_SHEETS = 20;
-const MAX_CELLS_PER_SHEET = 10000;
+const MAX_CELLS_PER_SHEET = 50000;
 
 function validateFileType(buffer: ArrayBuffer, _expectedType: "docx" | "excel"): boolean {
   const uint8 = new Uint8Array(buffer);
@@ -76,7 +76,7 @@ function summarizeExcel(excelData: { sheets: { name: string; rawCells: Record<st
   const sheetNames = excelData.sheets.map(s => s.name);
   const header = `[${excelData.sheets.length} sheet(s): ${sheetNames.map((n, i) => `#${i + 1} "${n}"`).join(", ")}]\n\n`;
   const details = excelData.sheets.map((s, i) => {
-    const cellEntries = Object.entries(s.rawCells).slice(0, 2000);
+    const cellEntries = Object.entries(s.rawCells).slice(0, 10000);
     return `Sheet #${i + 1} "${s.name}" (${Object.keys(s.rawCells).length} cells):\n${cellEntries.map(([cell, val]) => `  ${cell}: ${val}`).join("\n")}`;
   }).join("\n\n");
   return header + details;
