@@ -287,13 +287,12 @@ IMPORTANT: ALL output text (summary, explanations, descriptions) MUST be in SPAN
 
 CRITICAL RULES FOR ACCURACY:
 1. You will receive raw cell data in the format "CellAddress: Value" (e.g. "A1: Revenue", "B5: 1000"). ONLY use cell addresses that appear explicitly in the provided data. NEVER invent, guess, or extrapolate cell addresses beyond what is given.
-2. Before reporting ANY discrepancy, confirm that the cell address you are referencing EXISTS in the data dump for BOTH files. If the cell address does not appear in a file's data, you CANNOT know its value — DO NOT assume it is empty.
-3. NEVER report a cell as "(vacío)" or empty unless you can confirm it was explicitly listed in the data with an empty value. If a cell simply does not appear in the data dump, it means the data was not provided to you — NOT that it is empty.
-4. DO NOT report a cell as having a discrepancy if it is empty in BOTH files.
-5. Report EVERY genuine difference — but ONLY for cells where you have EXPLICIT data from BOTH files.
-6. For each row, check ALL columns present in the data. If a cell exists in one file but not the other, SKIP it — do not assume the missing one is empty.
-7. Be EXHAUSTIVE with the data you ARE given, but NEVER go beyond it.
-8. DOUBLE-CHECK your last reported discrepancy — statistically this is where hallucinations are most likely. Remove it if you are not 100% certain both cell values are explicitly present in the provided data.
+2. Before reporting ANY discrepancy, confirm that the cell address you are referencing EXISTS in the data dump for AT LEAST ONE of the two files.
+3. If a cell address appears in one file but NOT in the other, report it as a discrepancy — the cell has data in one file and is missing/empty in the other. This is a valid finding.
+4. DO NOT report a cell as having a discrepancy if it is empty/absent in BOTH files.
+5. Report EVERY genuine difference — values that differ, cells present in one file but absent in the other, etc.
+6. Be EXHAUSTIVE with the data you ARE given, but NEVER go beyond it. Do not invent cell addresses that don't appear in either file.
+7. DOUBLE-CHECK your last reported discrepancy — remove it if you are not 100% certain the cell addresses are explicitly present in the provided data.
 
 ${docType === "excel" ? `SHEET/TAB MATCHING FOR EXCEL FILES:
 1. MATCH BY NAME: Try to match sheets by their name or translated name.
