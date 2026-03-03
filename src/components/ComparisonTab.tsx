@@ -14,7 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 type ComparisonMode = "translation" | "data" | null;
 type PrimaryLanguage = "es" | "en";
 type LangPair = "es-en" | "es-es" | "en-en";
-type DocType = "excel" | "word" | null;
+type DocType = "excel" | "word" | "excel-word" | null;
 
 const langPairLabels: Record<LangPair, { file1: string; file2: string; label: string }> = {
   "es-en": { file1: "ES", file2: "EN", label: "Español vs English" },
@@ -84,8 +84,10 @@ const ComparisonTab = () => {
   const [extractingTerms, setExtractingTerms] = useState(false);
   const [addingTerm, setAddingTerm] = useState<number | null>(null);
   const lp = langPairLabels[langPair];
-  const accept = docType === "excel" ? ".xlsx,.xls,.csv" : ".docx,.doc";
-  const DocIcon = docType === "excel" ? FileSpreadsheet : FileText;
+  const accept1 = docType === "excel" ? ".xlsx,.xls,.csv" : docType === "word" ? ".docx,.doc" : ".xlsx,.xls,.csv";
+  const accept2 = docType === "excel" ? ".xlsx,.xls,.csv" : docType === "word" ? ".docx,.doc" : ".docx,.doc";
+  const DocIcon1 = docType === "word" ? FileText : FileSpreadsheet;
+  const DocIcon2 = docType === "excel" ? FileSpreadsheet : FileText;
 
   const dataBothUploaded = file1 !== null && file2 !== null;
   const translationHasFiles = transExcelES !== null && transExcelEN !== null && transWordES !== null && transWordEN !== null;
@@ -423,7 +425,13 @@ const ComparisonTab = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="excel">
-                      <span className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Excel</span>
+                      <span className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Excel vs Excel</span>
+                    </SelectItem>
+                    <SelectItem value="word">
+                      <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Word vs Word</span>
+                    </SelectItem>
+                    <SelectItem value="excel-word">
+                      <span className="flex items-center gap-2"><FileSpreadsheet className="h-4 w-4" /> Excel vs Word</span>
                     </SelectItem>
                     <SelectItem value="word">
                       <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Word</span>
@@ -469,14 +477,19 @@ const ComparisonTab = () => {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[0, 1].map((idx) => {
-                  const fileLabel = idx === 0 ? `${docType === "excel" ? "Excel" : "Word"} File 1 (${lp.file1})` : `${docType === "excel" ? "Excel" : "Word"} File 2 (${lp.file2})`;
+                  const isExcelSlot = docType === "excel" || (docType === "excel-word" && idx === 0);
+                  const isWordSlot = docType === "word" || (docType === "excel-word" && idx === 1);
+                  const formatLabel = isExcelSlot ? "Excel" : "Word";
+                  const fileLabel = `${formatLabel} File ${idx + 1} (${idx === 0 ? lp.file1 : lp.file2})`;
                   const currentFile = idx === 0 ? file1 : file2;
                   const setFile = idx === 0 ? setFile1 : setFile2;
+                  const SlotIcon = isExcelSlot ? FileSpreadsheet : FileText;
+                  const slotAccept = isExcelSlot ? ".xlsx,.xls,.csv" : ".docx,.doc";
                   return (
                     <Card key={idx} className="relative">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm flex items-center gap-2">
-                          <DocIcon className="h-6 w-6" /> {fileLabel}
+                          <SlotIcon className="h-6 w-6" /> {fileLabel}
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -492,7 +505,7 @@ const ComparisonTab = () => {
                               <p className="text-sm">Click para subir / Click to upload</p>
                             </div>
                           )}
-                          <input type="file" accept={accept} className="hidden" onChange={(e) => { setFile(e.target.files?.[0] || null); setResults(null); }} />
+                          <input type="file" accept={slotAccept} className="hidden" onChange={(e) => { setFile(e.target.files?.[0] || null); setResults(null); }} />
                         </label>
                       </CardContent>
                     </Card>

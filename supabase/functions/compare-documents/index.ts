@@ -253,6 +253,13 @@ ${word2Text.slice(0, 15000)}`;
         ]);
         file1Content = summarizeExcel(data1);
         file2Content = summarizeExcel(data2);
+      } else if (docType === "excel-word") {
+        const [excelData, wordText] = await Promise.all([
+          file1.arrayBuffer().then(parseExcel),
+          file2.arrayBuffer().then(parseDocx),
+        ]);
+        file1Content = summarizeExcel(excelData);
+        file2Content = wordText.slice(0, 20000);
       } else {
         // Word
         const [text1, text2] = await Promise.all([
@@ -269,7 +276,8 @@ ${word2Text.slice(0, 15000)}`;
 
       systemPrompt = `You are a meticulous financial data comparison expert. Your job is to find EVERY SINGLE difference between two files — no matter how small.
 
-Compare these two ${docType === "excel" ? "Excel" : "Word"} files cell by cell, row by row.
+Compare these two files (${docType === "excel" ? "both Excel" : docType === "word" ? "both Word" : "File 1 is Excel, File 2 is Word"}) for data accuracy.
+${docType === "excel-word" ? "File 1 contains structured cell data from Excel. File 2 contains narrative/tabular text extracted from a Word document. Match the data from the Excel against the content in the Word document — look for numbers, labels, and values that should appear in both." : "Compare cell by cell, row by row."}
 File 1 is in ${labels.l1 === "ES" ? "Spanish" : "English"}, File 2 is in ${labels.l2 === "ES" ? "Spanish" : "English"}.
 ${needsTranslation ? "Translate labels/headers when comparing across languages." : "Both files are in the same language."}
 File 1 is the PRIMARY/base file (source of truth).
