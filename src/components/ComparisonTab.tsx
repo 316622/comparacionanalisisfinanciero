@@ -142,6 +142,25 @@ const ComparisonTab = () => {
       }
 
       const data: ComparisonResult = await response.json();
+      
+      // Replace generic "File 1/File 2" labels with actual filenames
+      const fileName1 = mode === "translation" ? transExcelES!.name : file1!.name;
+      const fileName2 = mode === "translation" ? transExcelEN!.name : file2!.name;
+      const replaceFileLabels = (text: string) => {
+        return text
+          .replace(/File 1 \([^)]*\)/g, fileName1)
+          .replace(/File 2 \([^)]*\)/g, fileName2);
+      };
+      
+      data.summary = replaceFileLabels(data.summary);
+      if (data.baseFile) data.baseFile = replaceFileLabels(data.baseFile);
+      data.discrepancies = data.discrepancies.map(d => ({
+        ...d,
+        sourceFile: replaceFileLabels(d.sourceFile),
+        targetFile: replaceFileLabels(d.targetFile),
+        explanation: replaceFileLabels(d.explanation),
+      }));
+      
       setResults(data);
       logAuditEvent("comparison_completed", { mode, discrepancies: data.totalDiscrepancies });
     } catch (e: any) {
@@ -555,7 +574,6 @@ const ComparisonTab = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">#</TableHead>
-                      <TableHead>Severidad</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Archivo Origen</TableHead>
                       <TableHead>Ubicación</TableHead>
@@ -570,11 +588,6 @@ const ComparisonTab = () => {
                     {results.discrepancies.map((d) => (
                       <TableRow key={d.id}>
                         <TableCell className="font-mono text-xs">{d.id}</TableCell>
-                        <TableCell>
-                          <Badge variant={severityColor[d.severity] as any}>
-                            {severityLabel[d.severity] || d.severity}
-                          </Badge>
-                        </TableCell>
                         <TableCell className="text-xs">{d.type}</TableCell>
                         <TableCell className="text-xs font-medium">{d.sourceFile}</TableCell>
                         <TableCell className="text-xs font-mono">{d.sourceLocation}</TableCell>
@@ -602,11 +615,11 @@ const ComparisonTab = () => {
             <div className="space-y-3">
               <h3 className="text-sm font-semibold">Explicaciones Detalladas</h3>
               {results.discrepancies.map((d) => (
-                <Card key={d.id} className={d.severity === "critical" ? "border-destructive/50" : ""}>
+                <Card key={d.id}>
                   <CardContent className="pt-4">
                     <div className="flex items-start gap-3">
-                      <Badge variant={severityColor[d.severity] as any} className="mt-0.5 shrink-0">
-                        #{d.id} {severityLabel[d.severity]}
+                      <Badge variant="outline" className="mt-0.5 shrink-0 font-mono">
+                        #{d.id}
                       </Badge>
                       <div className="space-y-1 min-w-0">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
