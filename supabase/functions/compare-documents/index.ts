@@ -167,23 +167,25 @@ The PRIMARY file is: ${primaryFile}. The translation target language is ${target
 Compare the documents for TRANSLATION accuracy. The primary file is the source of truth.
 All discrepancies should show what the ${targetLang} translation SHOULD be based on the primary file.
 
+IMPORTANT: ALL output text (summary, explanations, descriptions) MUST be in ENGLISH ONLY. Do not include Spanish in the output.
+
 IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES (use this 3-level strategy in order):
-1. MATCH BY NAME: Try to match sheets by their name or translated name (e.g. "Balance General" ↔ "Balance Sheet", "Estado de Resultados" ↔ "Income Statement").
+1. MATCH BY NAME: Try to match sheets by their name or translated name (e.g. "Balance General" ↔ "Balance Sheet").
 2. MATCH BY ORDER: If names don't match, match by position (Sheet #1 vs Sheet #1, Sheet #2 vs Sheet #2, etc.).
-3. MATCH BY CONTENT: If neither name nor order produces a reasonable match, analyze the DATA STRUCTURE and VALUES inside each sheet. Look for similar column headers, row labels, numerical patterns, and financial categories to find the best content match. For example, a sheet with rows like "Activos/Pasivos/Patrimonio" clearly matches one with "Assets/Liabilities/Equity" regardless of sheet name.
-- In your summary, explain HOW each sheet pair was matched (by name, content, or order).
-- If a sheet exists in one file but has NO counterpart in the other (even after content analysis), report it as a "missing_sheet" discrepancy with severity "major".
+3. MATCH BY CONTENT: If neither name nor order produces a reasonable match, analyze the DATA STRUCTURE and VALUES inside each sheet.
+- In your summary, explain HOW each sheet pair was matched.
+- If a sheet exists in one file but has NO counterpart, report it as a "missing_sheet" discrepancy with severity "major".
 - Always include the SHEET NAME in every sourceLocation and targetLocation.
 
-For EVERY discrepancy found, you MUST provide:
-1. The original text in the primary file and its location (file name, sheet name, cell reference if Excel, or page/section if Word)
+For EVERY discrepancy found, provide:
+1. The original text in the primary file and its location
 2. The translated text found in ${targetFile} and its location
 3. What the correct ${targetLang} translation should be
 4. Severity: "critical" (numbers/amounts wrong), "major" (meaning changed), "minor" (style/preference)
 
 Return your analysis as a JSON object:
 {
-  "summary": "Brief overall assessment in Spanish and English. Include how many sheets were found in each file and how they were matched.",
+  "summary": "Brief overall assessment in English only.",
   "totalDiscrepancies": number,
   "baseFile": "${primaryFile}",
   "discrepancies": [
@@ -198,7 +200,7 @@ Return your analysis as a JSON object:
       "targetLocation": "Sheet 'SheetName', Cell Y" or "Section/paragraph description",
       "targetText": "translated text found",
       "correctTranslation": "what the correct ${targetLang} translation should be",
-      "explanation": "Brief explanation in Spanish and English"
+      "explanation": "Brief explanation in English only"
     }
   ]
 }`;
@@ -271,25 +273,25 @@ File 1 is in ${labels.l1 === "ES" ? "Spanish" : "English"}, File 2 is in ${label
 ${needsTranslation ? "Translate labels/headers when comparing across languages." : "Both files are in the same language."}
 File 1 is the PRIMARY/base file (source of truth).
 
+IMPORTANT: ALL output text (summary, explanations, descriptions) MUST be in ENGLISH ONLY. Do not include Spanish in the output.
+
 ${docType === "excel" ? `IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES:
-IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES (use this 3-level strategy in order):
-1. MATCH BY NAME: Try to match sheets by their name or translated name (e.g. "Balance General" ↔ "Balance Sheet").
-1. MATCH BY NAME: Try to match sheets by their name or translated name (e.g. "Balance General" ↔ "Balance Sheet").
-2. MATCH BY ORDER: If names don't match, match by position (Sheet #1 vs Sheet #1, Sheet #2 vs Sheet #2, etc.).
-3. MATCH BY CONTENT: If neither name nor order produces a reasonable match, analyze the DATA STRUCTURE and VALUES inside each sheet. Look for similar column headers, row labels, numerical patterns, and financial categories to find the best content match.
-- In your summary, explain HOW each sheet pair was matched (by name, content, or order).
-- If a sheet exists in one file but has NO counterpart in the other (even after content analysis), report it as a "missing_data" discrepancy with severity "major".
+1. MATCH BY NAME: Try to match sheets by their name or translated name.
+2. MATCH BY ORDER: If names don't match, match by position.
+3. MATCH BY CONTENT: If neither works, analyze DATA STRUCTURE and VALUES.
+- In your summary, explain HOW each sheet pair was matched.
+- If a sheet exists in one file but has NO counterpart, report it as a "missing_data" discrepancy with severity "major".
 - Always include the SHEET NAME in every sourceLocation and targetLocation.
 ` : ""}
 For EVERY data discrepancy found, provide:
-1. The data value in File 1 and its exact location (include sheet name for Excel)
+1. The data value in File 1 and its exact location
 2. The corresponding data in File 2 and its exact location
 3. What the expected value should be
 4. Severity: "critical" (financial amounts differ), "major" (key data differs), "minor" (formatting/rounding)
 
 Return your analysis as a JSON object:
 {
-  "summary": "Brief overall assessment in Spanish and English.${docType === "excel" ? " Include how many sheets were found in each file and how they were matched." : ""}",
+  "summary": "Brief overall assessment in English only.${docType === "excel" ? " Include how many sheets were found in each file and how they were matched." : ""}",
   "baseFile": "${primaryFileLabel}",
   "totalDiscrepancies": number,
   "discrepancies": [
@@ -304,7 +306,7 @@ Return your analysis as a JSON object:
       "targetLocation": "Sheet 'SheetName', Cell Y" or "Section/paragraph",
       "targetValue": "value in comparison file",
       "expectedValue": "what the correct value should be",
-      "explanation": "Brief explanation in Spanish and English"
+      "explanation": "Brief explanation in English only"
     }
   ]
 }`;
