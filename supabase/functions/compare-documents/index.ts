@@ -76,7 +76,7 @@ function summarizeExcel(excelData: { sheets: { name: string; rawCells: Record<st
   const sheetNames = excelData.sheets.map(s => s.name);
   const header = `[${excelData.sheets.length} sheet(s): ${sheetNames.map((n, i) => `#${i + 1} "${n}"`).join(", ")}]\n\n`;
   const details = excelData.sheets.map((s, i) => {
-    const cellEntries = Object.entries(s.rawCells).slice(0, 10000);
+    const cellEntries = Object.entries(s.rawCells);
     return `Sheet #${i + 1} "${s.name}" (${Object.keys(s.rawCells).length} cells):\n${cellEntries.map(([cell, val]) => `  ${cell}: ${val}`).join("\n")}`;
   }).join("\n\n");
   return header + details;
@@ -212,10 +212,10 @@ ${excel1Summary}
 ${excel2Summary}
 
 ## Word File 1 (ES) - "${file3.name}"
-${word1Text.slice(0, 15000)}
+${word1Text}
 
 ## Word File 2 (EN) - "${file4.name}"
-${word2Text.slice(0, 15000)}`;
+${word2Text}`;
 
     } else if (mode === "data") {
       // Data mode: 2 files of same type
@@ -260,15 +260,15 @@ ${word2Text.slice(0, 15000)}`;
           file2.arrayBuffer().then(parseDocx),
         ]);
         file1Content = summarizeExcel(excelData);
-        file2Content = wordText.slice(0, 20000);
+        file2Content = wordText;
       } else {
         // Word
         const [text1, text2] = await Promise.all([
           file1.arrayBuffer().then(parseDocx),
           file2.arrayBuffer().then(parseDocx),
         ]);
-        file1Content = text1.slice(0, 20000);
-        file2Content = text2.slice(0, 20000);
+        file1Content = text1;
+        file2Content = text2;
       }
 
       const needsTranslation = langPair === "es-en";
@@ -353,7 +353,7 @@ ${file2Content}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
