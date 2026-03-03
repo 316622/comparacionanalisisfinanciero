@@ -10,7 +10,7 @@ const corsHeaders = {
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_SHEETS = 20;
-const MAX_CELLS_PER_SHEET = 5000;
+const MAX_CELLS_PER_SHEET = 10000;
 
 function validateFileType(buffer: ArrayBuffer, _expectedType: "docx" | "excel"): boolean {
   const uint8 = new Uint8Array(buffer);
@@ -76,7 +76,7 @@ function summarizeExcel(excelData: { sheets: { name: string; rawCells: Record<st
   const sheetNames = excelData.sheets.map(s => s.name);
   const header = `[${excelData.sheets.length} sheet(s): ${sheetNames.map((n, i) => `#${i + 1} "${n}"`).join(", ")}]\n\n`;
   const details = excelData.sheets.map((s, i) => {
-    const cellEntries = Object.entries(s.rawCells).slice(0, 200);
+    const cellEntries = Object.entries(s.rawCells).slice(0, 500);
     return `Sheet #${i + 1} "${s.name}" (${Object.keys(s.rawCells).length} cells):\n${cellEntries.map(([cell, val]) => `  ${cell}: ${val}`).join("\n")}`;
   }).join("\n\n");
   return header + details;
@@ -267,15 +267,24 @@ ${word2Text.slice(0, 15000)}`;
       const primaryFileLabel = `File 1 (${labels.l1})`;
       const targetFileLabel = `File 2 (${labels.l2})`;
 
-      systemPrompt = `You are a bilingual (Spanish/English) financial data comparison expert.
-Compare these two ${docType === "excel" ? "Excel" : "Word"} files for DATA accuracy.
+      systemPrompt = `You are a meticulous financial data comparison expert. Your job is to find EVERY SINGLE difference between two files — no matter how small.
+
+Compare these two ${docType === "excel" ? "Excel" : "Word"} files cell by cell, row by row.
 File 1 is in ${labels.l1 === "ES" ? "Spanish" : "English"}, File 2 is in ${labels.l2 === "ES" ? "Spanish" : "English"}.
 ${needsTranslation ? "Translate labels/headers when comparing across languages." : "Both files are in the same language."}
 File 1 is the PRIMARY/base file (source of truth).
 
 IMPORTANT: ALL output text (summary, explanations, descriptions) MUST be in SPANISH ONLY.
 
-${docType === "excel" ? `IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES:
+CRITICAL RULES FOR ACCURACY:
+1. ONLY report a discrepancy if you can verify BOTH the source cell AND the target cell contain actual data that differs. 
+2. DO NOT report a cell as having a discrepancy if it is empty in BOTH files.
+3. DO NOT fabricate or hallucinate cell references. If a cell address is not explicitly present in the data provided, do NOT reference it.
+4. Report EVERY difference you find — including empty/blank cells in one file where the other has data, different values, different text, different numbers, extra rows, missing rows.
+5. For each row in the data, check ALL columns — not just the first few. If a row has blank cells in one file but data in the other, report each one.
+6. Be EXHAUSTIVE: scan every single cell provided in the data. Do not skip any.
+
+${docType === "excel" ? `SHEET/TAB MATCHING FOR EXCEL FILES:
 1. MATCH BY NAME: Try to match sheets by their name or translated name.
 2. MATCH BY ORDER: If names don't match, match by position.
 3. MATCH BY CONTENT: If neither works, analyze DATA STRUCTURE and VALUES.
@@ -283,15 +292,14 @@ ${docType === "excel" ? `IMPORTANT - SHEET/TAB MATCHING FOR EXCEL FILES:
 - If a sheet exists in one file but has NO counterpart, report it as a "missing_data" discrepancy with severity "major".
 - Always include the SHEET NAME in every sourceLocation and targetLocation.
 ` : ""}
-For EVERY data discrepancy found, provide:
-1. The data value in File 1 and its exact location
-2. The corresponding data in File 2 and its exact location
-3. What the expected value should be
-4. Severity: "critical" (financial amounts differ), "major" (key data differs), "minor" (formatting/rounding)
+Severity levels:
+- "critical": financial amounts or numbers differ
+- "major": key data, text content, or labels differ; data present in one file but missing in the other
+- "minor": formatting, spacing, or rounding differences
 
 Return your analysis as a JSON object:
 {
-  "summary": "Evaluación general breve en español.${docType === "excel" ? " Incluir cuántas hojas se encontraron en cada archivo y cómo se emparejaron." : ""}",
+  "summary": "Evaluación detallada en español de todas las diferencias encontradas.${docType === "excel" ? " Incluir cuántas hojas se encontraron en cada archivo y cómo se emparejaron." : ""}",
   "baseFile": "${primaryFileLabel}",
   "totalDiscrepancies": number,
   "discrepancies": [
@@ -300,12 +308,12 @@ Return your analysis as a JSON object:
       "type": "value_mismatch" | "missing_data" | "extra_data" | "format_difference",
       "severity": "critical" | "major" | "minor",
       "sourceFile": "${primaryFileLabel}",
-      "sourceLocation": "Sheet 'SheetName', Cell Y" or "Section/paragraph",
-      "sourceValue": "value in primary file",
+      "sourceLocation": "Sheet 'SheetName', Cell Y",
+      "sourceValue": "valor exacto en el archivo primario (o '(vacío)' si está vacío)",
       "targetFile": "${targetFileLabel}",
-      "targetLocation": "Sheet 'SheetName', Cell Y" or "Section/paragraph",
-      "targetValue": "value in comparison file",
-      "expectedValue": "what the correct value should be",
+      "targetLocation": "Sheet 'SheetName', Cell Y",
+      "targetValue": "valor exacto en el archivo de comparación (o '(vacío)' si está vacío)",
+      "expectedValue": "valor correcto esperado",
       "explanation": "Explicación breve en español"
     }
   ]
