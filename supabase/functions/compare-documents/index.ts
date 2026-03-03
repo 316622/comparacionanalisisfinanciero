@@ -240,6 +240,7 @@ ${word2Text.slice(0, 15000)}`;
         "es-en": { l1: "ES", l2: "EN" },
         "es-es": { l1: "ES", l2: "ES" },
         "en-en": { l1: "EN", l2: "EN" },
+        "en-es": { l1: "EN", l2: "ES" },
       };
       const labels = langLabels[langPair] || { l1: "File 1", l2: "File 2" };
 

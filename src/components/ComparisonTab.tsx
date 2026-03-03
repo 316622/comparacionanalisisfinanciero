@@ -13,13 +13,14 @@ import { useAuth } from "@/hooks/useAuth";
 
 type ComparisonMode = "translation" | "data" | null;
 type PrimaryLanguage = "es" | "en";
-type LangPair = "es-en" | "es-es" | "en-en";
+type LangPair = "es-en" | "es-es" | "en-en" | "en-es";
 type DocType = "excel" | "word" | "excel-word" | null;
 
 const langPairLabels: Record<LangPair, { file1: string; file2: string; label: string }> = {
   "es-en": { file1: "ES", file2: "EN", label: "Español vs English" },
   "es-es": { file1: "ES", file2: "ES", label: "Español vs Español" },
   "en-en": { file1: "EN", file2: "EN", label: "English vs English" },
+  "en-es": { file1: "EN", file2: "ES", label: "English vs Español" },
 };
 
 interface FileSlot {
@@ -456,9 +457,20 @@ const ComparisonTab = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="es-en">Español vs English</SelectItem>
-                      <SelectItem value="es-es">Español vs Español</SelectItem>
-                      <SelectItem value="en-en">English vs English</SelectItem>
+                      {docType === "excel-word" ? (
+                        <>
+                          <SelectItem value="es-en">Excel Español / Word English</SelectItem>
+                          <SelectItem value="en-es">Excel English / Word Español</SelectItem>
+                          <SelectItem value="en-en">Excel English / Word English</SelectItem>
+                          <SelectItem value="es-es">Excel Español / Word Español</SelectItem>
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem value="es-en">Español vs English</SelectItem>
+                          <SelectItem value="es-es">Español vs Español</SelectItem>
+                          <SelectItem value="en-en">English vs English</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
