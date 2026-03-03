@@ -224,14 +224,16 @@ const ComparisonTab = () => {
   return (
     <div className="space-y-6">
       {/* Confidentiality notice */}
-      <div className="flex items-start gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <div className="flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary/5 p-4">
+        <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10 shrink-0">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
         <div>
-          <p className="text-sm font-medium text-foreground">Confidencialidad / Confidentiality</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-sm font-semibold text-foreground">Confidencialidad / Confidentiality</p>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
             Los archivos subidos se procesan temporalmente en memoria y <strong>no se almacenan</strong> en ningún servidor ni base de datos. Son descartados inmediatamente después del análisis.
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
             Uploaded files are processed temporarily in memory and are <strong>not stored</strong> on any server or database. They are discarded immediately after analysis.
           </p>
         </div>
@@ -244,14 +246,17 @@ const ComparisonTab = () => {
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card
-            className={`cursor-pointer transition-all hover:shadow-md ${
-              mode === "translation" ? "ring-2 ring-primary border-primary" : "hover:border-primary/40"
+            className={`cursor-pointer transition-all rounded-2xl hover:scale-[1.01] ${
+              mode === "translation" ? "ring-2 ring-primary border-primary shadow-md" : "hover:border-primary/40"
             }`}
+            style={{ boxShadow: mode === "translation" ? undefined : "var(--shadow-card)" }}
             onClick={() => { setMode("translation"); setResults(null); }}
           >
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <Languages className="h-5 w-5 text-primary" />
+                <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
+                  <Languages className="h-5 w-5 text-primary" />
+                </div>
                 Comparación de Traducción
               </CardTitle>
               <CardDescription>Translation Comparison</CardDescription>
@@ -260,21 +265,24 @@ const ComparisonTab = () => {
               <p className="text-sm text-muted-foreground">
                 Verifica si la traducción entre los documentos es correcta y precisa.
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground/70 mt-1">
                 Checks if the translation between documents is correct and accurate.
               </p>
             </CardContent>
           </Card>
 
           <Card
-            className={`cursor-pointer transition-all hover:shadow-md ${
-              mode === "data" ? "ring-2 ring-primary border-primary" : "hover:border-primary/40"
+            className={`cursor-pointer transition-all rounded-2xl hover:scale-[1.01] ${
+              mode === "data" ? "ring-2 ring-primary border-primary shadow-md" : "hover:border-primary/40"
             }`}
+            style={{ boxShadow: mode === "data" ? undefined : "var(--shadow-card)" }}
             onClick={() => { setMode("data"); setResults(null); }}
           >
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <Database className="h-5 w-5 text-primary" />
+                <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-primary/10">
+                  <Database className="h-5 w-5 text-primary" />
+                </div>
                 Comparación de Datos
               </CardTitle>
               <CardDescription>Data Comparison</CardDescription>
@@ -283,7 +291,7 @@ const ComparisonTab = () => {
               <p className="text-sm text-muted-foreground">
                 Extrae datos de un archivo base, los traduce y compara con el otro para encontrar discrepancias.
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground/70 mt-1">
                 Extracts data from a base file, translates it, and compares with the other to find discrepancies.
               </p>
             </CardContent>
@@ -497,8 +505,8 @@ const ComparisonTab = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
-                {results.totalDiscrepancies === 0 ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+               {results.totalDiscrepancies === 0 ? (
+                  <CheckCircle2 className="h-5 w-5 text-success" />
                 ) : (
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                 )}

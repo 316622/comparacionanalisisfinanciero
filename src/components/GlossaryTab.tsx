@@ -214,15 +214,15 @@ const GlossaryTab = () => {
 
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-2">
-        <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10">
-          <BookOpen className="h-5 w-5 text-primary" />
+      <div className="flex items-center gap-4">
+        <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20">
+          <BookOpen className="h-6 w-6 text-primary" />
         </div>
         <div>
-          <h2 className="text-lg font-bold text-foreground">Glosario Financiero</h2>
-          <p className="text-xs text-muted-foreground">Financial Glossary · Español ↔ English</p>
+          <h2 className="text-xl font-bold text-foreground tracking-tight">Glosario Financiero</h2>
+          <p className="text-sm text-muted-foreground">Financial Glossary · Español ↔ English</p>
         </div>
       </div>
 
@@ -296,11 +296,12 @@ const GlossaryTab = () => {
           <p className="text-muted-foreground/60 text-xs">No results found</p>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((term) => (
             <div
               key={term.id}
-              className="group relative rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-all hover:border-primary/30"
+              className="group relative rounded-2xl border border-border/60 bg-card p-5 transition-all hover:border-primary/30"
+              style={{ boxShadow: "var(--shadow-card)" }}
             >
               {user && (
                 <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -312,14 +313,14 @@ const GlossaryTab = () => {
                   </Button>
                 </div>
               )}
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <div className="flex items-start gap-2">
-                  <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5 border-primary/30 text-primary">ES</Badge>
+                  <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5 border-primary/30 text-primary font-semibold">ES</Badge>
                   <span className="font-semibold text-foreground text-sm">{term.term_es}</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5 border-secondary/50 text-secondary">EN</Badge>
-                  <span className="font-medium text-foreground/80 text-sm">{term.term_en}</span>
+                  <Badge variant="outline" className="text-[10px] shrink-0 mt-0.5 border-secondary/50 text-secondary font-semibold">EN</Badge>
+                  <span className="font-medium text-foreground/75 text-sm">{term.term_en}</span>
                 </div>
                 {getCategoryName(term.category_id) && (
                   <Badge variant="secondary" className="text-[10px]">
@@ -328,7 +329,7 @@ const GlossaryTab = () => {
                   </Badge>
                 )}
                 {term.definition && (
-                  <p className="text-xs text-muted-foreground leading-relaxed pt-1 border-t border-border/50">
+                  <p className="text-xs text-muted-foreground leading-relaxed pt-2 border-t border-border/40">
                     {term.definition}
                   </p>
                 )}
