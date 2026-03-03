@@ -76,7 +76,8 @@ const ComparisonTab = () => {
   const [transWordES, setTransWordES] = useState<File | null>(null);
   const [transWordEN, setTransWordEN] = useState<File | null>(null);
   const [docType, setDocType] = useState<DocType>(null);
-  const [langPair, setLangPair] = useState<LangPair>("es-en");
+  const [lang1, setLang1] = useState<"es" | "en">("es");
+  const [lang2, setLang2] = useState<"es" | "en">("en");
   const [file1, setFile1] = useState<File | null>(null);
   const [file2, setFile2] = useState<File | null>(null);
   const [isComparing, setIsComparing] = useState(false);
@@ -84,11 +85,8 @@ const ComparisonTab = () => {
   const [suggestedTerms, setSuggestedTerms] = useState<Array<{ term_es: string; term_en: string; definition: string }>>([]);
   const [extractingTerms, setExtractingTerms] = useState(false);
   const [addingTerm, setAddingTerm] = useState<number | null>(null);
-  const lp = langPairLabels[langPair];
-  const accept1 = docType === "excel" ? ".xlsx,.xls,.csv" : docType === "word" ? ".docx,.doc" : ".xlsx,.xls,.csv";
-  const accept2 = docType === "excel" ? ".xlsx,.xls,.csv" : docType === "word" ? ".docx,.doc" : ".docx,.doc";
-  const DocIcon1 = docType === "word" ? FileText : FileSpreadsheet;
-  const DocIcon2 = docType === "excel" ? FileSpreadsheet : FileText;
+  const langPair = `${lang1}-${lang2}` as LangPair;
+  const lp = langPairLabels[langPair] || { file1: lang1.toUpperCase(), file2: lang2.toUpperCase(), label: "" };
 
   const dataBothUploaded = file1 !== null && file2 !== null;
   const translationHasFiles = transExcelES !== null && transExcelEN !== null && transWordES !== null && transWordEN !== null;
@@ -440,65 +438,38 @@ const ComparisonTab = () => {
             </Card>
           </div>
 
-          {/* Step 3: Language pair */}
+          {/* Step 3: Upload files with language selector */}
           {docType && (
             <div>
               <h3 className="text-sm font-semibold text-foreground mb-3">
-                Paso 3: Idiomas / Step 3: Languages
-              </h3>
-              <Card className="p-4">
-                <div className="flex items-center gap-3">
-                  <Languages className="h-5 w-5 text-primary" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Combinación de idiomas / Language combination</p>
-                  </div>
-                  <Select value={langPair} onValueChange={(v) => { setLangPair(v as LangPair); setResults(null); }}>
-                    <SelectTrigger className="w-[220px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {docType === "excel-word" ? (
-                        <>
-                          <SelectItem value="es-en">Excel Español / Word English</SelectItem>
-                          <SelectItem value="en-es">Excel English / Word Español</SelectItem>
-                          <SelectItem value="en-en">Excel English / Word English</SelectItem>
-                          <SelectItem value="es-es">Excel Español / Word Español</SelectItem>
-                        </>
-                      ) : (
-                        <>
-                          <SelectItem value="es-en">Español vs English</SelectItem>
-                          <SelectItem value="es-es">Español vs Español</SelectItem>
-                          <SelectItem value="en-en">English vs English</SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </Card>
-            </div>
-          )}
-
-          {/* Step 4: Upload 2 files */}
-          {docType && (
-            <div>
-              <h3 className="text-sm font-semibold text-foreground mb-3">
-                Paso 4: Subir Archivos / Step 4: Upload Files
+                Paso 3: Subir Archivos / Step 3: Upload Files
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[0, 1].map((idx) => {
                   const isExcelSlot = docType === "excel" || (docType === "excel-word" && idx === 0);
-                  const isWordSlot = docType === "word" || (docType === "excel-word" && idx === 1);
                   const formatLabel = isExcelSlot ? "Excel" : "Word";
-                  const fileLabel = `${formatLabel} File ${idx + 1} (${idx === 0 ? lp.file1 : lp.file2})`;
                   const currentFile = idx === 0 ? file1 : file2;
                   const setFile = idx === 0 ? setFile1 : setFile2;
+                  const lang = idx === 0 ? lang1 : lang2;
+                  const setLang = idx === 0 ? setLang1 : setLang2;
                   const SlotIcon = isExcelSlot ? FileSpreadsheet : FileText;
                   const slotAccept = isExcelSlot ? ".xlsx,.xls,.csv" : ".docx,.doc";
                   return (
                     <Card key={idx} className="relative">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <SlotIcon className="h-6 w-6" /> {fileLabel}
+                        <CardTitle className="text-sm flex items-center gap-2 justify-between">
+                          <div className="flex items-center gap-2">
+                            <SlotIcon className="h-5 w-5" /> {formatLabel}
+                          </div>
+                          <Select value={lang} onValueChange={(v) => { setLang(v as "es" | "en"); setResults(null); }}>
+                            <SelectTrigger className="w-[130px] h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="es">Español</SelectItem>
+                              <SelectItem value="en">English</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
