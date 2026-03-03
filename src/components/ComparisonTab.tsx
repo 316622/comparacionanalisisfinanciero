@@ -38,10 +38,12 @@ interface Discrepancy {
   sourceLocation: string;
   sourceText?: string;
   sourceValue?: string;
+  sourceOrigin?: string;
   targetFile: string;
   targetLocation: string;
   targetText?: string;
   targetValue?: string;
+  targetOrigin?: string;
   correctTranslation?: string;
   expectedValue?: string;
   explanation: string;
@@ -591,11 +593,17 @@ const ComparisonTab = () => {
                             <p className="font-semibold">{d.sourceFile}</p>
                             <p className="font-mono font-bold text-foreground">{d.sourceLocation}</p>
                             <p className="mt-1 break-words">{d.sourceText || d.sourceValue}</p>
+                            {d.sourceOrigin && (
+                              <p className="mt-1 text-[10px] text-muted-foreground italic">📌 {d.sourceOrigin}</p>
+                            )}
                           </div>
                           <div className="bg-muted/50 rounded p-2">
                             <p className="font-semibold">{d.targetFile}</p>
                             <p className="font-mono font-bold text-foreground">{d.targetLocation}</p>
                             <p className="mt-1 break-words">{d.targetText || d.targetValue}</p>
+                            {d.targetOrigin && (
+                              <p className="mt-1 text-[10px] text-muted-foreground italic">📌 {d.targetOrigin}</p>
+                            )}
                           </div>
                         </div>
                         {(d.correctTranslation || d.expectedValue) && (

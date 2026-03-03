@@ -37,17 +37,19 @@ interface SheetData {
   name: string;
   data: Record<string, string>[];
   rawCells: Record<string, string>;
+  rawFormulas: Record<string, string>;
 }
 
 function parseExcel(buffer: ArrayBuffer): { sheets: SheetData[] } {
   if (!validateFileType(buffer)) throw new Error("Invalid Excel file format");
-  const workbook = XLSX.read(buffer, { type: "array" });
+  const workbook = XLSX.read(buffer, { type: "array", cellFormula: true });
   const sheetNames = workbook.SheetNames.slice(0, MAX_SHEETS);
   const sheets = sheetNames.map((name: string) => {
     try {
       const sheet = workbook.Sheets[name];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as Record<string, string>[];
       const rawCells: Record<string, string> = {};
+      const rawFormulas: Record<string, string> = {};
       const range = XLSX.utils.decode_range(sheet["!ref"] || "A1");
       let cellCount = 0;
       for (let r = range.s.r; r <= range.e.r && cellCount < MAX_CELLS_PER_SHEET; r++) {
@@ -57,13 +59,16 @@ function parseExcel(buffer: ArrayBuffer): { sheets: SheetData[] } {
           if (cell && cell.v !== undefined && cell.v !== "") {
             rawCells[addr] = String(cell.v);
             cellCount++;
+            if (cell.f) {
+              rawFormulas[addr] = cell.f;
+            }
           }
         }
       }
-      return { name, data, rawCells };
+      return { name, data, rawCells, rawFormulas };
     } catch (sheetError) {
       console.error(`Failed to parse sheet "${name}":`, sheetError);
-      return { name, data: [], rawCells: {} };
+      return { name, data: [], rawCells: {}, rawFormulas: {} };
     }
   });
   return { sheets };
@@ -139,9 +144,11 @@ interface DetDiscrepancy {
   sourceFile: string;
   sourceLocation: string;
   sourceValue: string;
+  sourceOrigin?: string;
   targetFile: string;
   targetLocation: string;
   targetValue: string;
+  targetOrigin?: string;
   expectedValue: string;
   explanation: string;
 }
@@ -155,6 +162,39 @@ function determineSeverity(val1: string, val2: string): "critical" | "major" | "
   if (val1.trim() === "" || val2.trim() === "") return "major";
   // Text differs
   return "major";
+}
+
+function getCellOrigin(formula: string | undefined): string {
+  if (!formula) return "Valor manual";
+  // Check if it references external file
+  if (formula.includes("[") && formula.includes("]")) {
+    return `Link externo: =${formula}`;
+  }
+  // Check if it references another sheet
+  if (formula.includes("!")) {
+    return `Fórmula (ref. otra hoja): =${formula}`;
+  }
+  return `Fórmula: =${formula}`;
+}
+
+function getRowLabel(sheet: SheetData, row: number): string {
+  // Try column A first, then B
+  const addrA = XLSX.utils.encode_cell({ r: row, c: 0 });
+  const addrB = XLSX.utils.encode_cell({ r: row, c: 1 });
+  const valA = sheet.rawCells[addrA]?.trim();
+  const valB = sheet.rawCells[addrB]?.trim();
+  // Prefer the text label (non-numeric)
+  if (valA && isNaN(Number(valA.replace(/,/g, "")))) return valA;
+  if (valB && isNaN(Number(valB.replace(/,/g, "")))) return valB;
+  if (valA) return valA;
+  if (valB) return valB;
+  return "";
+}
+
+function getColumnHeader(sheet: SheetData, col: number): string {
+  // Read from row 0 (header row)
+  const addr = XLSX.utils.encode_cell({ r: 0, c: col });
+  return sheet.rawCells[addr]?.trim() || "";
 }
 
 function compareExcelDeterministic(
@@ -206,9 +246,24 @@ function compareExcelDeterministic(
       const has1 = v1 !== undefined;
       const has2 = v2 !== undefined;
 
+      // Decode cell position for context
+      const decoded = XLSX.utils.decode_cell(addr);
+      const rowLabel = getRowLabel(s1, decoded.r) || getRowLabel(s2, decoded.r);
+      const colHeader = getColumnHeader(s1, decoded.c) || getColumnHeader(s2, decoded.c);
+      
+      // Build contextual description
+      const contextParts: string[] = [];
+      if (rowLabel) contextParts.push(rowLabel);
+      if (colHeader) contextParts.push(colHeader);
+      const context = contextParts.length > 0 ? contextParts.join(" de ") : addr;
+
+      const f1 = s1.rawFormulas[addr];
+      const f2 = s2.rawFormulas[addr];
+
       if (has1 && has2) {
-        // Both have data - compare
         if (normalizeValue(v1) !== normalizeValue(v2)) {
+          const origin1 = getCellOrigin(f1);
+          const origin2 = getCellOrigin(f2);
           discrepancies.push({
             id: discId++,
             type: "value_mismatch",
@@ -216,30 +271,35 @@ function compareExcelDeterministic(
             sourceFile: file1Label,
             sourceLocation: `Hoja '${s1.name}', Celda ${addr}`,
             sourceValue: v1,
+            sourceOrigin: origin1,
             targetFile: file2Label,
             targetLocation: `Hoja '${s2.name}', Celda ${addr}`,
             targetValue: v2,
+            targetOrigin: origin2,
             expectedValue: v1,
-            explanation: `El valor en ${addr} difiere: "${v1}" vs "${v2}".`,
+            explanation: `${context} no cuadra: en ${file1Label} es "${v1}" y en ${file2Label} es "${v2}".`,
           });
         }
       } else if (has1 && !has2) {
+        const origin1 = getCellOrigin(f1);
         discrepancies.push({
           id: discId++, type: "missing_data", severity: determineSeverity(v1, ""),
           sourceFile: file1Label, sourceLocation: `Hoja '${s1.name}', Celda ${addr}`,
-          sourceValue: v1, targetFile: file2Label,
+          sourceValue: v1, sourceOrigin: origin1, targetFile: file2Label,
           targetLocation: `Hoja '${s2.name}', Celda ${addr}`, targetValue: "(vacío)",
           expectedValue: v1,
-          explanation: `La celda ${addr} tiene valor "${v1}" en ${file1Label} pero está vacía en ${file2Label}.`,
+          explanation: `${context} tiene valor "${v1}" en ${file1Label} pero está vacío en ${file2Label}.`,
         });
       } else if (!has1 && has2) {
+        const origin2 = getCellOrigin(f2);
         discrepancies.push({
           id: discId++, type: "extra_data", severity: determineSeverity("", v2),
           sourceFile: file1Label, sourceLocation: `Hoja '${s1.name}', Celda ${addr}`,
           sourceValue: "(vacío)", targetFile: file2Label,
           targetLocation: `Hoja '${s2.name}', Celda ${addr}`, targetValue: v2,
+          targetOrigin: origin2,
           expectedValue: "(vacío)",
-          explanation: `La celda ${addr} está vacía en ${file1Label} pero tiene valor "${v2}" en ${file2Label}.`,
+          explanation: `${context} está vacío en ${file1Label} pero tiene valor "${v2}" en ${file2Label}.`,
         });
       }
     }
