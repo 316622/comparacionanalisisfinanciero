@@ -1,5 +1,7 @@
+1
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ZipReader, BlobReader, TextWriter } from "https://deno.land/x/zipjs@v2.7.32/index.js";
 import * as XLSX from "npm:xlsx@0.18.5";
 
 const corsHeaders = {
@@ -20,17 +22,61 @@ function validateFileType(buffer: ArrayBuffer): boolean {
 
 async function parseDocx(buffer: ArrayBuffer): Promise<string> {
   if (!validateFileType(buffer)) throw new Error("Invalid DOCX file format");
-  const uint8 = new Uint8Array(buffer);
-  const decoder = new TextDecoder();
-  const raw = decoder.decode(uint8);
-  const textParts: string[] = [];
-  const regex = /<w:t[^>]*>(.*?)<\/w:t>/gs;
-  let match;
-  while ((match = regex.exec(raw)) !== null) {
-    textParts.push(match[1]);
+
+  try {
+    const blob = new Blob([buffer]);
+    const zipReader = new ZipReader(new BlobReader(blob));
+    const entries = await zipReader.getEntries();
+
+    let xmlContent = "";
+    for (const entry of entries) {
+      if (entry.filename === "word/document.xml" && !entry.directory) {
+        const writer = new TextWriter("utf-8");
+        xmlContent = await entry.getData(writer);
+        break;
+      }
+    }
+    await zipReader.close();
+
+    if (!xmlContent) {
+      throw new Error("No se encontró word/document.xml dentro del archivo DOCX.");
+    }
+
+    const decodeEntities = (s: string) =>
+      s
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&#x([0-9A-Fa-f]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+        .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)));
+
+    const paragraphs: string[] = [];
+    const paraRegex = /<w:p[ >][\s\S]*?<\/w:p>/g;
+    let pMatch;
+    while ((pMatch = paraRegex.exec(xmlContent)) !== null) {
+      const parts: string[] = [];
+      const tRegex = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
+      let tMatch;
+      while ((tMatch = tRegex.exec(pMatch[0])) !== null) {
+        const text = decodeEntities(tMatch[1]);
+        if (text.trim()) parts.push(text);
+      }
+      if (parts.length > 0) paragraphs.push(parts.join(""));
+    }
+
+    if (paragraphs.length === 0) {
+      throw new Error("No se pudo extraer texto del documento Word. El archivo puede estar vacío o dañado.");
+    }
+
+    return paragraphs.join("\n");
+
+  } catch (err: any) {
+    throw new Error(
+      `No se pudo leer el archivo Word. Verifica que sea un .docx válido (no formato .doc antiguo). Detalle: ${err.message}`
+    );
   }
-  if (textParts.length > 0) return textParts.join(" ");
-  return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 interface SheetData {
@@ -409,48 +455,76 @@ function compareWordDeterministic(
   file1Label: string,
   file2Label: string
 ): { summary: string; totalDiscrepancies: number; baseFile: string; discrepancies: DetDiscrepancy[] } {
-  // Split into sentences/segments for granular comparison
-  const split = (t: string) => t.split(/(?<=[.;!?\n])\s+/).map(s => s.trim()).filter(s => s.length > 0);
-  const segs1 = split(text1);
-  const segs2 = split(text2);
+  const paragraphs1 = text1.split("\n").map(p => p.trim()).filter(p => p.length > 0);
+  const paragraphs2 = text2.split("\n").map(p => p.trim()).filter(p => p.length > 0);
   const discrepancies: DetDiscrepancy[] = [];
   let discId = 1;
-  const maxLen = Math.max(segs1.length, segs2.length);
+
+  const extractValues = (text: string): string[] => {
+    const matches = text.match(/[\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?%?|\d+[.,]\d+|\b\d{4}\b/g);
+    return matches ? matches.map(m => m.replace(/,/g, "").replace(/\./g, "").toLowerCase()) : [];
+  };
+
+  const maxLen = Math.max(paragraphs1.length, paragraphs2.length);
 
   for (let i = 0; i < maxLen; i++) {
-    const s1 = segs1[i] || "";
-    const s2 = segs2[i] || "";
-    if (s1.trim().toLowerCase() !== s2.trim().toLowerCase()) {
-      if (s1 && !s2) {
-        discrepancies.push({
-          id: discId++, type: "missing_data", severity: "major",
-          sourceFile: file1Label, sourceLocation: `Segmento #${i + 1}`,
-          sourceValue: s1.slice(0, 500), targetFile: file2Label,
-          targetLocation: `Segmento #${i + 1}`, targetValue: "(vacío)",
-          expectedValue: s1.slice(0, 500),
-          explanation: `El segmento #${i + 1} existe en ${file1Label} pero no en ${file2Label}.`,
-        });
-      } else if (!s1 && s2) {
-        discrepancies.push({
-          id: discId++, type: "extra_data", severity: "major",
-          sourceFile: file1Label, sourceLocation: `Segmento #${i + 1}`,
-          sourceValue: "(vacío)", targetFile: file2Label,
-          targetLocation: `Segmento #${i + 1}`, targetValue: s2.slice(0, 500),
-          expectedValue: "(vacío)",
-          explanation: `El segmento #${i + 1} existe en ${file2Label} pero no en ${file1Label}.`,
-        });
-      } else {
-        discrepancies.push({
-          id: discId++, type: "value_mismatch", severity: "major",
-          sourceFile: file1Label, sourceLocation: `Segmento #${i + 1}`,
-          sourceValue: s1.slice(0, 500), targetFile: file2Label,
-          targetLocation: `Segmento #${i + 1}`, targetValue: s2.slice(0, 500),
-          expectedValue: s1.slice(0, 500),
-          explanation: `El contenido del segmento #${i + 1} difiere entre ambos archivos.`,
-        });
-      }
+    const p1 = paragraphs1[i] || "";
+    const p2 = paragraphs2[i] || "";
+
+    if (!p1 && p2) {
+      discrepancies.push({
+        id: discId++, type: "missing_data", severity: "major",
+        sourceFile: file1Label, sourceLocation: `Párrafo #${i + 1}`,
+        sourceValue: "(vacío)", targetFile: file2Label,
+        targetLocation: `Párrafo #${i + 1}`, targetValue: p2.slice(0, 500),
+        expectedValue: "(vacío)",
+        explanation: `El párrafo #${i + 1} existe en ${file2Label} pero no en ${file1Label}.`,
+      });
+      continue;
+    }
+
+    if (p1 && !p2) {
+      discrepancies.push({
+        id: discId++, type: "missing_data", severity: "major",
+        sourceFile: file1Label, sourceLocation: `Párrafo #${i + 1}`,
+        sourceValue: p1.slice(0, 500), targetFile: file2Label,
+        targetLocation: `Párrafo #${i + 1}`, targetValue: "(vacío)",
+        expectedValue: p1.slice(0, 500),
+        explanation: `El párrafo #${i + 1} existe en ${file1Label} pero no en ${file2Label}.`,
+      });
+      continue;
+    }
+
+    const values1 = extractValues(p1);
+    const values2 = extractValues(p2);
+
+    const missingInP2 = values1.filter(v => !values2.includes(v));
+    const missingInP1 = values2.filter(v => !values1.includes(v));
+
+    if (missingInP2.length > 0 || missingInP1.length > 0) {
+      discrepancies.push({
+        id: discId++, type: "value_mismatch", severity: "critical",
+        sourceFile: file1Label, sourceLocation: `Párrafo #${i + 1}`,
+        sourceValue: p1.slice(0, 500), targetFile: file2Label,
+        targetLocation: `Párrafo #${i + 1}`, targetValue: p2.slice(0, 500),
+        expectedValue: p1.slice(0, 500),
+        explanation: `Párrafo #${i + 1}: datos que difieren — en ${file1Label}: [${missingInP2.join(", ") || "—"}] / en ${file2Label}: [${missingInP1.join(", ") || "—"}].`,
+      });
     }
   }
+
+  const critCount = discrepancies.filter(d => d.severity === "critical").length;
+  const majCount = discrepancies.filter(d => d.severity === "major").length;
+
+  const summary = [
+    `Comparación párrafo por párrafo completada.`,
+    `${file1Label}: ${paragraphs1.length} párrafo(s). ${file2Label}: ${paragraphs2.length} párrafo(s).`,
+    `Total de discrepancias de datos: ${discrepancies.length} (${critCount} críticas, ${majCount} mayores).`,
+    discrepancies.length === 0 ? "✅ Los datos en ambos documentos son consistentes." : "",
+  ].filter(Boolean).join("\n");
+
+  return { summary, totalDiscrepancies: discrepancies.length, baseFile: file1Label, discrepancies };
+}
 
   const summary = [
     `Comparación determinística de texto completada.`,
@@ -460,7 +534,6 @@ function compareWordDeterministic(
   ].filter(Boolean).join("\n");
 
   return { summary, totalDiscrepancies: discrepancies.length, baseFile: file1Label, discrepancies };
-}
 
 function compareExcelWordDeterministic(
   excelData: { sheets: SheetData[] },
