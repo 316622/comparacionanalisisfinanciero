@@ -1,8 +1,7 @@
-1
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ZipReader, BlobReader, TextWriter } from "https://deno.land/x/zipjs@v2.7.32/index.js";
 import * as XLSX from "npm:xlsx@0.18.5";
+import { ZipReader, BlobReader, TextWriter } from "https://deno.land/x/zipjs@v2.7.32/index.js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,6 +23,7 @@ async function parseDocx(buffer: ArrayBuffer): Promise<string> {
   if (!validateFileType(buffer)) throw new Error("Invalid DOCX file format");
 
   try {
+    // DOCX is a ZIP — use zip.js to properly decompress and read word/document.xml
     const blob = new Blob([buffer]);
     const zipReader = new ZipReader(new BlobReader(blob));
     const entries = await zipReader.getEntries();
@@ -42,6 +42,7 @@ async function parseDocx(buffer: ArrayBuffer): Promise<string> {
       throw new Error("No se encontró word/document.xml dentro del archivo DOCX.");
     }
 
+    // Helper to decode XML entities
     const decodeEntities = (s: string) =>
       s
         .replace(/&amp;/g, "&")
@@ -52,6 +53,7 @@ async function parseDocx(buffer: ArrayBuffer): Promise<string> {
         .replace(/&#x([0-9A-Fa-f]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
         .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)));
 
+    // Extract text paragraph by paragraph (preserves document structure)
     const paragraphs: string[] = [];
     const paraRegex = /<w:p[ >][\s\S]*?<\/w:p>/g;
     let pMatch;
@@ -525,15 +527,6 @@ function compareWordDeterministic(
 
   return { summary, totalDiscrepancies: discrepancies.length, baseFile: file1Label, discrepancies };
 }
-
-  const summary = [
-    `Comparación determinística de texto completada.`,
-    `${file1Label}: ${segs1.length} segmentos. ${file2Label}: ${segs2.length} segmentos.`,
-    `Total de discrepancias: ${discrepancies.length}.`,
-    discrepancies.length === 0 ? "✅ Los documentos son idénticos en contenido." : "",
-  ].filter(Boolean).join("\n");
-
-  return { summary, totalDiscrepancies: discrepancies.length, baseFile: file1Label, discrepancies };
 
 function compareExcelWordDeterministic(
   excelData: { sheets: SheetData[] },
