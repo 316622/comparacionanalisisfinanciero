@@ -21,13 +21,10 @@ function validateFileType(buffer: ArrayBuffer): boolean {
 
 async function parseDocx(buffer: ArrayBuffer): Promise<string> {
   if (!validateFileType(buffer)) throw new Error("Invalid DOCX file format");
-
   try {
-    // DOCX is a ZIP — use zip.js to properly decompress and read word/document.xml
     const blob = new Blob([buffer]);
     const zipReader = new ZipReader(new BlobReader(blob));
     const entries = await zipReader.getEntries();
-
     let xmlContent = "";
     for (const entry of entries) {
       if (entry.filename === "word/document.xml" && !entry.directory) {
@@ -37,23 +34,12 @@ async function parseDocx(buffer: ArrayBuffer): Promise<string> {
       }
     }
     await zipReader.close();
-
-    if (!xmlContent) {
-      throw new Error("No se encontró word/document.xml dentro del archivo DOCX.");
-    }
-
-    // Helper to decode XML entities
+    if (!xmlContent) throw new Error("No se encontro word/document.xml dentro del archivo DOCX.");
     const decodeEntities = (s: string) =>
-      s
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&#x([0-9A-Fa-f]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-        .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)));
-
-    // Extract text paragraph by paragraph (preserves document structure)
+      s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+       .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+       .replace(/&#x([0-9A-Fa-f]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+       .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)));
     const paragraphs: string[] = [];
     const paraRegex = /<w:p[ >][\s\S]*?<\/w:p>/g;
     let pMatch;
@@ -67,17 +53,10 @@ async function parseDocx(buffer: ArrayBuffer): Promise<string> {
       }
       if (parts.length > 0) paragraphs.push(parts.join(""));
     }
-
-    if (paragraphs.length === 0) {
-      throw new Error("No se pudo extraer texto del documento Word. El archivo puede estar vacío o dañado.");
-    }
-
+    if (paragraphs.length === 0) throw new Error("No se pudo extraer texto del documento Word.");
     return paragraphs.join("\n");
-
   } catch (err: any) {
-    throw new Error(
-      `No se pudo leer el archivo Word. Verifica que sea un .docx válido (no formato .doc antiguo). Detalle: ${err.message}`
-    );
+    throw new Error(`No se pudo leer el archivo Word. Verifica que sea .docx valido. Detalle: ${err.message}`);
   }
 }
 
@@ -462,67 +441,92 @@ function compareWordDeterministic(
   const discrepancies: DetDiscrepancy[] = [];
   let discId = 1;
 
-  const extractValues = (text: string): string[] => {
-    const matches = text.match(/[\d]{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?%?|\d+[.,]\d+|\b\d{4}\b/g);
-    return matches ? matches.map(m => m.replace(/,/g, "").replace(/\./g, "").toLowerCase()) : [];
+  const extractNums = (text: string): Set<string> => {
+    const result = new Set<string>();
+    const tokens = text.match(/[\d][\d,.]*/g) || [];
+    for (const token of tokens) {
+      const clean = token.replace(/,/g, '').replace(/\./g, '');
+      if (clean.length >= 3 && /^\d+$/.test(clean)) {
+        result.add(clean);
+      }
+    }
+    return result;
   };
 
-  const maxLen = Math.max(paragraphs1.length, paragraphs2.length);
+  const allNums1 = extractNums(text1);
+  const allNums2 = extractNums(text2);
+  const onlyIn1 = [...allNums1].filter(n => !allNums2.has(n));
+  const onlyIn2 = [...allNums2].filter(n => !allNums1.has(n));
 
-  for (let i = 0; i < maxLen; i++) {
-    const p1 = paragraphs1[i] || "";
-    const p2 = paragraphs2[i] || "";
-
-    if (!p1 && p2) {
-      discrepancies.push({
-        id: discId++, type: "missing_data", severity: "major",
-        sourceFile: file1Label, sourceLocation: `Párrafo #${i + 1}`,
-        sourceValue: "(vacío)", targetFile: file2Label,
-        targetLocation: `Párrafo #${i + 1}`, targetValue: p2.slice(0, 500),
-        expectedValue: "(vacío)",
-        explanation: `El párrafo #${i + 1} existe en ${file2Label} pero no en ${file1Label}.`,
-      });
-      continue;
+  const findParagraph = (paragraphs: string[], num: string): { idx: number; text: string } => {
+    for (let i = 0; i < paragraphs.length; i++) {
+      if (extractNums(paragraphs[i]).has(num)) return { idx: i + 1, text: paragraphs[i] };
     }
+    return { idx: -1, text: "" };
+  };
 
-    if (p1 && !p2) {
-      discrepancies.push({
-        id: discId++, type: "missing_data", severity: "major",
-        sourceFile: file1Label, sourceLocation: `Párrafo #${i + 1}`,
-        sourceValue: p1.slice(0, 500), targetFile: file2Label,
-        targetLocation: `Párrafo #${i + 1}`, targetValue: "(vacío)",
-        expectedValue: p1.slice(0, 500),
-        explanation: `El párrafo #${i + 1} existe en ${file1Label} pero no en ${file2Label}.`,
-      });
-      continue;
-    }
+  const grouped1 = new Map<number, { nums: string[]; text: string }>();
+  for (const num of onlyIn1) {
+    const found = findParagraph(paragraphs1, num);
+    if (found.idx === -1) continue;
+    if (!grouped1.has(found.idx)) grouped1.set(found.idx, { nums: [], text: found.text });
+    grouped1.get(found.idx)!.nums.push(num);
+  }
 
-    const values1 = extractValues(p1);
-    const values2 = extractValues(p2);
+  const grouped2 = new Map<number, { nums: string[]; text: string }>();
+  for (const num of onlyIn2) {
+    const found = findParagraph(paragraphs2, num);
+    if (found.idx === -1) continue;
+    if (!grouped2.has(found.idx)) grouped2.set(found.idx, { nums: [], text: found.text });
+    grouped2.get(found.idx)!.nums.push(num);
+  }
 
-    const missingInP2 = values1.filter(v => !values2.includes(v));
-    const missingInP1 = values2.filter(v => !values1.includes(v));
+  const usedPara2 = new Set<number>();
 
-    if (missingInP2.length > 0 || missingInP1.length > 0) {
+  for (const [pIdx1, data1] of grouped1.entries()) {
+    if (grouped2.has(pIdx1) && !usedPara2.has(pIdx1)) {
+      const data2 = grouped2.get(pIdx1)!;
+      usedPara2.add(pIdx1);
       discrepancies.push({
         id: discId++, type: "value_mismatch", severity: "critical",
-        sourceFile: file1Label, sourceLocation: `Párrafo #${i + 1}`,
-        sourceValue: p1.slice(0, 500), targetFile: file2Label,
-        targetLocation: `Párrafo #${i + 1}`, targetValue: p2.slice(0, 500),
-        expectedValue: p1.slice(0, 500),
-        explanation: `Párrafo #${i + 1}: datos que difieren — en ${file1Label}: [${missingInP2.join(", ") || "—"}] / en ${file2Label}: [${missingInP1.join(", ") || "—"}].`,
+        sourceFile: file1Label, sourceLocation: `Parrafo #${pIdx1}`,
+        sourceValue: data1.text.slice(0, 500),
+        targetFile: file2Label, targetLocation: `Parrafo #${pIdx1}`,
+        targetValue: data2.text.slice(0, 500),
+        expectedValue: data1.nums.join(", "),
+        explanation: `Parrafo #${pIdx1} — en ${file1Label}: [${data1.nums.join(", ")}] / en ${file2Label}: [${data2.nums.join(", ")}].`,
+      });
+    } else {
+      discrepancies.push({
+        id: discId++, type: "missing_data", severity: "critical",
+        sourceFile: file1Label, sourceLocation: `Parrafo #${pIdx1}`,
+        sourceValue: data1.text.slice(0, 500),
+        targetFile: file2Label, targetLocation: "No encontrado",
+        targetValue: "(ausente)", expectedValue: data1.nums.join(", "),
+        explanation: `Los valores [${data1.nums.join(", ")}] en ${file1Label} no coinciden en ${file2Label}.`,
+      });
+    }
+  }
+
+  for (const [pIdx2, data2] of grouped2.entries()) {
+    if (!usedPara2.has(pIdx2)) {
+      discrepancies.push({
+        id: discId++, type: "missing_data", severity: "critical",
+        sourceFile: file2Label, sourceLocation: `Parrafo #${pIdx2}`,
+        sourceValue: data2.text.slice(0, 500),
+        targetFile: file1Label, targetLocation: "No encontrado",
+        targetValue: "(ausente)", expectedValue: data2.nums.join(", "),
+        explanation: `Los valores [${data2.nums.join(", ")}] en ${file2Label} no coinciden en ${file1Label}.`,
       });
     }
   }
 
   const critCount = discrepancies.filter(d => d.severity === "critical").length;
-  const majCount = discrepancies.filter(d => d.severity === "major").length;
-
   const summary = [
-    `Comparación párrafo por párrafo completada.`,
-    `${file1Label}: ${paragraphs1.length} párrafo(s). ${file2Label}: ${paragraphs2.length} párrafo(s).`,
-    `Total de discrepancias de datos: ${discrepancies.length} (${critCount} críticas, ${majCount} mayores).`,
-    discrepancies.length === 0 ? "✅ Los datos en ambos documentos son consistentes." : "",
+    `Comparacion global de datos financieros completada.`,
+    `${file1Label}: ${paragraphs1.length} parrafo(s). ${file2Label}: ${paragraphs2.length} parrafo(s).`,
+    `Total de discrepancias de datos: ${discrepancies.length} (${critCount} criticas).`,
+    discrepancies.length === 0 ? "Los datos en ambos documentos son consistentes." : "",
   ].filter(Boolean).join("\n");
 
   return { summary, totalDiscrepancies: discrepancies.length, baseFile: file1Label, discrepancies };
